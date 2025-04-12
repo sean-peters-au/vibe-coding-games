@@ -2,6 +2,7 @@ import pygame
 import config
 import math
 import os # Needed for path joining
+import game_data_manager # Import data manager
 
 def load_image(filename, colorkey=None):
     """Loads an image, prepares it for play.
@@ -14,7 +15,7 @@ def load_image(filename, colorkey=None):
         print(message)
         return None, None # Indicate failure
     except FileNotFoundError:
-        print("Warning: Cannot load image (File Not Found):", fullname)
+        print(f"Warning: Cannot load image (File Not Found):", fullname)
         return None, None # Indicate failure
 
     image = image.convert_alpha() # Preserve transparency
@@ -27,7 +28,7 @@ def load_image(filename, colorkey=None):
 # --- Base Classes ---
 class BaseTower(pygame.sprite.Sprite):
     # Common attributes/methods for all towers
-    def __init__(self, grid_x, grid_y):
+    def __init__(self, grid_x, grid_y, type_key):
         super().__init__()
         self.grid_x = grid_x
         self.grid_y = grid_y
@@ -35,6 +36,30 @@ class BaseTower(pygame.sprite.Sprite):
         self.y = grid_y * config.TILE_SIZE + config.TILE_SIZE // 2
         self.last_shot_time = 0
         self.target = None
+        self.type_key = type_key # Store the type key (e.g., "Basic", "Cannon")
+
+        # Load data for this specific tower type
+        data = game_data_manager.get_tower_data(type_key)
+        if not data:
+            print(f"Error: No data found for tower type '{type_key}'")
+            # Handle error appropriately - maybe default values or raise exception
+            return
+
+        # Set attributes from data
+        self.cost = data.get("cost", 9999)
+        self.range = data.get("range", 100)
+        self.fire_rate = data.get("fire_rate", 2.0)
+        self.projectile_type = data.get("projectile_type", "Basic") # Projectile key
+
+        # Load image using data
+        image_path = data.get("image", "default_tower.png")
+        # Use scale_ratio from data, fallback_size_ratio only for initial surface
+        scale_ratio = data.get("scale_ratio", 0.9)
+        fallback_size_ratio = data.get("fallback_size_ratio", 0.8)
+        fallback_color_name = data.get("fallback_color", "GREY")
+        fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
+        fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
+        self.load_and_position_image(image_path, fallback_size, fallback_color)
 
     def find_target(self, enemies):
         self.target = None
@@ -59,24 +84,70 @@ class BaseTower(pygame.sprite.Sprite):
 
     # Abstract method - subclasses must implement
     def shoot(self, projectiles):
-        raise NotImplementedError("Subclass must implement shoot method")
+        if self.target:
+            # Use the projectile type key stored in the tower
+            projectile_data = game_data_manager.get_projectile_data(self.projectile_type)
+            if projectile_data:
+                # Need a way to map projectile_type key to Projectile class
+                # We'll handle instantiation in specific Tower classes for now
+                # This shoot method in BaseTower might need rethinking or removal if
+                # subclasses handle it entirely.
+                 pass # Subclasses will implement actual projectile creation
+            else:
+                print(f"Error: No projectile data found for type '{self.projectile_type}'")
 
     def load_and_position_image(self, image_path, fallback_size, fallback_color):
         self.image, self.rect = load_image(image_path)
+
+        # Get scale ratio from the instance's data (requires data to be accessible)
+        # Fetch data again here or pass scale_ratio down
+        data = game_data_manager.get_tower_data(self.type_key)
+        scale_ratio = data.get("scale_ratio", 0.9) if data else 0.9
+        target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+
         if self.image is None:
             print(f"Using fallback for {image_path}")
             self.image = pygame.Surface([fallback_size, fallback_size])
             self.image.fill(fallback_color)
+            # Scale fallback image too, just in case fallback_size differs from target
+            self.image = pygame.transform.smoothscale(self.image, target_size)
             self.rect = self.image.get_rect()
+        else:
+            # Scale the loaded image
+            self.image = pygame.transform.smoothscale(self.image, target_size)
+            self.rect = self.image.get_rect() # Get new rect after scaling
+
         self.rect.center = (self.x, self.y)
 
 
 class BaseProjectile(pygame.sprite.Sprite):
     # Common attributes/methods for all projectiles
-    def __init__(self, start_pos, target_enemy):
+    def __init__(self, start_pos, target_enemy, type_key):
         super().__init__()
         self.x, self.y = start_pos
         self.target = target_enemy
+        self.type_key = type_key
+
+        # Load data
+        data = game_data_manager.get_projectile_data(type_key)
+        if not data:
+            print(f"Error: No data found for projectile type '{type_key}'")
+            return
+
+        # Set attributes from data
+        self.speed = data.get("speed", 200)
+        self.damage = data.get("damage", 10)
+        # Specific attributes like splash radius handled by subclasses or checked here
+        self.splash_radius = data.get("splash_radius", 0) # Default 0 if not defined
+
+        # Load image using data
+        image_path = data.get("image", "default_projectile.png")
+        scale_ratio = data.get("scale_ratio", 0.3)
+        fallback_size_ratio = data.get("fallback_size_ratio", 0.2)
+        fallback_color_name = data.get("fallback_color", "YELLOW")
+        fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
+        fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
+        self.load_and_position_image(image_path, fallback_size, fallback_color)
 
     def move(self, dt):
         if not self.target or not self.target.alive():
@@ -95,105 +166,186 @@ class BaseProjectile(pygame.sprite.Sprite):
         move_y = (dy / dist) * self.speed * dt
         self.x += move_x
         self.y += move_y
-        self.rect.center = (self.x, self.y) # Assumes self.rect set by subclass
+        self.rect.center = (self.x, self.y)
 
     def update(self, dt, enemies):
         self.move(dt)
 
     def load_and_position_image(self, image_path, fallback_size, fallback_color):
         self.image, self.rect = load_image(image_path)
+
+        # Fetch scale ratio from data
+        data = game_data_manager.get_projectile_data(self.type_key)
+        scale_ratio = data.get("scale_ratio", 0.3) if data else 0.3
+        target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+
         if self.image is None:
             print(f"Using fallback for {image_path}")
             self.image = pygame.Surface([fallback_size, fallback_size])
             self.image.fill(fallback_color)
+            # Scale fallback
+            self.image = pygame.transform.smoothscale(self.image, target_size)
             self.rect = self.image.get_rect()
+        else:
+            # Scale loaded image
+            self.image = pygame.transform.smoothscale(self.image, target_size)
+            self.rect = self.image.get_rect()
+
         self.rect.center = (self.x, self.y)
 
 
 # --- Tower Class (now inherits from BaseTower) ---
 class Tower(BaseTower):
-    FALLBACK_SIZE = int(config.TILE_SIZE * 0.8)
-    FALLBACK_COLOR = config.BLUE
-    # Define specific stats
-    COST = 50
-    RANGE = 150 # Pixels
-    FIRE_RATE = 1.0 # Seconds between shots
+    # Remove hardcoded stats and fallbacks
+    # FALLBACK_SIZE = int(config.TILE_SIZE * 0.8)
+    # FALLBACK_COLOR = config.BLUE
+    # COST = 50
+    # RANGE = 150
+    # FIRE_RATE = 1.0
 
     def __init__(self, grid_x, grid_y):
-        super().__init__(grid_x, grid_y)
-
-        # Load image using helper from base class
-        self.load_and_position_image(config.TOWER_IMAGE, self.FALLBACK_SIZE, self.FALLBACK_COLOR)
-
-        # Set instance stats from class stats
-        self.range = self.RANGE
-        self.fire_rate = self.FIRE_RATE
-        self.cost = self.COST
+        # Pass the type key for this tower
+        super().__init__(grid_x, grid_y, type_key="Basic")
+        # Base __init__ now handles loading data and setting attributes
 
     # Implement the specific shooting action
     def shoot(self, projectiles):
         if self.target:
-            # Note: Projectile class reference below is correct
-            projectile = Projectile(self.rect.center, self.target)
+            # Instantiate the correct projectile type based on self.projectile_type
+            # (which was set from data in base __init__)
+            # We know "Basic" tower uses "Basic" projectile
+            projectile = Projectile(self.rect.center, self.target, type_key="Basic")
             projectiles.add(projectile)
 
 
 # --- Projectile Class (now inherits from BaseProjectile) ---
 class Projectile(BaseProjectile):
-    FALLBACK_SIZE = int(config.TILE_SIZE * 0.2)
-    FALLBACK_COLOR = config.YELLOW
-    # Define specific stats
-    SPEED = 300 # Pixels per second
-    DAMAGE = 25
+    # Remove hardcoded stats and fallbacks
+    # FALLBACK_SIZE = int(config.TILE_SIZE * 0.2)
+    # FALLBACK_COLOR = config.YELLOW
+    # SPEED = 300
+    # DAMAGE = 25
 
-    def __init__(self, start_pos, target_enemy):
-        super().__init__(start_pos, target_enemy)
+    def __init__(self, start_pos, target_enemy, type_key="Basic"):
+        super().__init__(start_pos, target_enemy, type_key)
+        # Base __init__ handles loading data
 
-        # Load image using helper from base class
-        self.load_and_position_image(config.PROJECTILE_IMAGE, self.FALLBACK_SIZE, self.FALLBACK_COLOR)
-
-        # Set instance stats from class stats
-        self.speed = self.SPEED
-        self.damage = self.DAMAGE
 
 # --- Enemy Class ---
 class Enemy(pygame.sprite.Sprite):
-    FALLBACK_SIZE = int(config.TILE_SIZE * 0.6)
-    FALLBACK_COLOR = config.RED
-    # Define stats here
-    SPEED = 50 # Pixels per second
-    HEALTH = 100
-    REWARD = 10 # Money gained per kill
 
-    def __init__(self, path):
+    def __init__(self, path, type_key="Goblin"): # Default to Goblin now
         super().__init__()
-        self.path = path # List of (x, y) pixel coordinates
+        self.path = path
         self.path_index = 0
         self.x, self.y = self.path[0]
+        self.type_key = type_key
 
-        self.image, self.rect = load_image(config.ENEMY_IMAGE)
+        # Load data for this enemy type
+        data = game_data_manager.get_enemy_data(type_key)
+        if not data:
+            print(f"Error: No data found for enemy type '{type_key}'")
+            # Set defaults or raise error
+            self.speed = 50
+            self.health = 50
+            self.max_health = 50
+            self.reward = 5
+            image_path = None # Indicate no static image
+            animation_data = None
+            scale_ratio = 0.6
+            fallback_color_name = "RED"
+        else:
+            # Set attributes from data
+            self.speed = data.get("speed", 50)
+            self.health = data.get("health", 50)
+            self.max_health = self.health # Base max health on loaded health
+            self.reward = data.get("reward", 5)
+            image_path = data.get("image") # Might be None if animation exists
+            animation_data = data.get("animation") # Get animation data
+            scale_ratio = data.get("scale_ratio", 0.6) # Load scale ratio
+            fallback_color_name = data.get("fallback_color", "RED")
 
-        if self.image is None: # Fallback if image loading failed
-             print(f"Using fallback for {config.ENEMY_IMAGE}")
-             self.image = pygame.Surface([self.FALLBACK_SIZE, self.FALLBACK_SIZE])
-             self.image.fill(self.FALLBACK_COLOR)
-             self.rect = self.image.get_rect()
+        # --- Animation or Static Image Loading ---
+        self.animation_frames = []
+        self.current_frame_index = 0
+        self.last_frame_update = pygame.time.get_ticks()
+        self.animation_speed = 150 # Default, will be overridden by data
+
+        if animation_data and isinstance(animation_data.get("frames"), list):
+            # Load animation frames
+            self.animation_speed = animation_data.get("speed", 150)
+            # Use scale_ratio from data for target size
+            target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+            for frame_filename in animation_data["frames"]:
+                frame_image, _ = load_image(frame_filename)
+                if frame_image:
+                    # Scale each frame
+                    scaled_frame = pygame.transform.smoothscale(frame_image, target_size)
+                    self.animation_frames.append(scaled_frame)
+            if not self.animation_frames:
+                 # Need to pass fallback_size_ratio as well
+                 self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
+            else:
+                 self.image = self.animation_frames[0]
+                 self.rect = self.image.get_rect()
+
+        elif image_path:
+            # Load static image
+            # Use scale_ratio from data for target size
+            target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+            self.image, self.rect = load_image(image_path)
+            if self.image is None:
+                 # Need to pass fallback_size_ratio as well
+                 self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
+            else:
+                 # Scale static image
+                 self.image = pygame.transform.smoothscale(self.image, target_size)
+                 self.rect = self.image.get_rect() # Get new rect after scaling
+
+        else:
+             # No animation and no static image -> Use fallback
+             print(f"Warning: No image or animation defined for {type_key}. Using fallback.")
+             # Need to pass fallback_size_ratio as well
+             self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
 
         self.rect.center = (self.x, self.y)
 
-        # Use class attributes for stats
-        self.speed = self.SPEED
-        self.health = self.HEALTH
-        self.max_health = self.HEALTH # Base max health on initial health
-        self.reward = self.REWARD
-
-        # Ensure path has at least two points to avoid index error
+        # Path target logic remains same
         if len(self.path) > 1:
-             self.target_x, self.target_y = self.path[1] # Start moving towards the second point
+             self.target_x, self.target_y = self.path[1]
         else:
-             # Handle case with short path (e.g., stay put or error)
-             print(f"Warning: Enemy path for {self.__class__.__name__} too short.")
-             self.target_x, self.target_y = self.x, self.y # Stay in place
+             print(f"Warning: Enemy path for {self.type_key} too short.")
+             self.target_x, self.target_y = self.x, self.y
+
+    def _create_fallback_image(self, fallback_color_name, fallback_size_ratio, scale_ratio):
+        """Helper to create and scale the fallback colored square."""
+        # Calculate target size using the scale_ratio intended for the final image
+        target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+
+        # Create initial surface using fallback ratio
+        actual_fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
+        fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
+        initial_surface = pygame.Surface([actual_fallback_size, actual_fallback_size])
+        initial_surface.fill(fallback_color)
+
+        # Scale fallback image to the target size
+        self.image = pygame.transform.smoothscale(initial_surface, target_size)
+        self.rect = self.image.get_rect()
+
+    def _animate(self):
+        """Handles cycling through animation frames."""
+        if not self.animation_frames: # Don't animate if no frames (static image or fallback)
+            return
+
+        now = pygame.time.get_ticks()
+        if now - self.last_frame_update > self.animation_speed:
+            self.last_frame_update = now
+            self.current_frame_index = (self.current_frame_index + 1) % len(self.animation_frames)
+            # Important: Preserve center when changing image
+            center = self.rect.center
+            self.image = self.animation_frames[self.current_frame_index]
+            self.rect = self.image.get_rect()
+            self.rect.center = center
 
     def move(self, dt):
         dx = self.target_x - self.x
@@ -244,52 +396,56 @@ class Enemy(pygame.sprite.Sprite):
         self.draw_health_bar(surface)
 
     def update(self, dt):
+        self._animate() # Call animation update
         reached_end = self.move(dt)
         return reached_end
 
 # --- Cannon Tower Class ---
 class CannonTower(BaseTower):
-    FALLBACK_SIZE = int(config.TILE_SIZE * 0.9) # Slightly larger fallback
-    FALLBACK_COLOR = config.DARK_RED
-    # Define specific stats
-    COST = 100
-    RANGE = 180 # Longer range
-    FIRE_RATE = 2.5 # Slower fire rate
 
     def __init__(self, grid_x, grid_y):
-        super().__init__(grid_x, grid_y)
-
-        # Load image using helper from base class
-        self.load_and_position_image(config.CANNON_TOWER_IMAGE, self.FALLBACK_SIZE, self.FALLBACK_COLOR)
-
-        # Set instance stats from class stats
-        self.range = self.RANGE
-        self.fire_rate = self.FIRE_RATE
-        self.cost = self.COST
+        # Pass the type key for this tower
+        super().__init__(grid_x, grid_y, type_key="Cannon")
 
     # Implement the specific shooting action
     def shoot(self, projectiles):
         if self.target:
-            projectile = CannonProjectile(self.rect.center, self.target)
+            # "Cannon" tower uses "Cannon" projectile
+            projectile = CannonProjectile(self.rect.center, self.target, type_key="Cannon")
             projectiles.add(projectile)
 
 
 # --- Cannon Projectile Class ---
 class CannonProjectile(BaseProjectile):
-    FALLBACK_SIZE = int(config.TILE_SIZE * 0.3)
-    FALLBACK_COLOR = config.ORANGE # Need to define ORANGE in config
-    # Define specific stats
-    SPEED = 200 # Slower projectile
-    DAMAGE = 75 # Higher damage
-    SPLASH_RADIUS = 50 # Pixels
 
-    def __init__(self, start_pos, target_enemy):
-        super().__init__(start_pos, target_enemy)
+    def __init__(self, start_pos, target_enemy, type_key="Cannon"):
+        super().__init__(start_pos, target_enemy, type_key)
+        # Base __init__ handles loading data (including splash_radius) 
 
-        # Load image using helper from base class
-        self.load_and_position_image(config.CANNON_PROJECTILE_IMAGE, self.FALLBACK_SIZE, self.FALLBACK_COLOR)
+# --- Visual Effect Class ---
+class Effect(pygame.sprite.Sprite):
+    """A sprite for temporary visual effects like explosions."""
+    def __init__(self, pos, image_path, duration_ms, target_size=None):
+        super().__init__()
+        self.image, self.rect = load_image(image_path)
+        if not self.image:
+            print(f"Warning: Failed to load effect image {image_path}. Effect won't display.")
+            self.kill()
+            return
 
-        # Set instance stats from class stats
-        self.speed = self.SPEED
-        self.damage = self.DAMAGE
-        self.splash_radius = self.SPLASH_RADIUS 
+        # Scale the image if target_size is provided
+        if target_size:
+            try:
+                self.image = pygame.transform.smoothscale(self.image, target_size)
+                self.rect = self.image.get_rect() # Update rect after scaling
+            except ValueError as e:
+                print(f"Error scaling effect image {image_path} to {target_size}: {e}")
+
+        self.rect.center = pos
+        self.spawn_time = pygame.time.get_ticks()
+        self.duration = duration_ms
+
+    def update(self, dt):
+        # Remove the effect after its duration expires
+        if pygame.time.get_ticks() - self.spawn_time > self.duration:
+            self.kill() 

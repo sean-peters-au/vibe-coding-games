@@ -7,11 +7,12 @@ class Button:
     ICON_SIZE = 48 # Size of the tower icon
     PADDING = 10 # Padding around elements
 
-    def __init__(self, y, tower_class, icon_path, name, cost):
-        self.tower_class = tower_class
+    def __init__(self, y, tower_key, icon_path, name, cost, fallback_color_name):
+        self.tower_key = tower_key # Store the key
         self.name = name
         self.cost = cost
         self.icon_path = icon_path
+        self.fallback_color_name = fallback_color_name # Store the name
 
         # Button area rectangle
         self.width = config.UI_PANEL_WIDTH - 2 * self.PADDING
@@ -22,12 +23,12 @@ class Button:
                                self.height)
 
         # Load icon (with fallback color)
-        self.icon_image, _ = load_image(icon_path) # Use existing loader
+        self.icon_image, _ = load_image(icon_path)
         if self.icon_image is None:
              # Fallback: Create colored square icon
              self.icon_image = pygame.Surface([self.ICON_SIZE, self.ICON_SIZE])
-             # Use tower's fallback color if available, else default grey
-             fallback_color = getattr(tower_class, 'FALLBACK_COLOR', config.GREY)
+             # Use the passed fallback color name and COLOR_MAP
+             fallback_color = config.COLOR_MAP.get(self.fallback_color_name, config.GREY)
              self.icon_image.fill(fallback_color)
         else:
              # Scale loaded icon if needed
@@ -63,33 +64,40 @@ class Button:
 
 class UIPanel:
     """Manages the UI panel on the right side."""
-    def __init__(self, start_y, font):
+    def __init__(self, tower_data, start_y, font):
         self.rect = pygame.Rect(config.GAME_AREA_WIDTH, 0,
                                config.UI_PANEL_WIDTH, config.SCREEN_HEIGHT)
         self.font = font
         self.buttons = []
-        self.selected_tower_type = None
+        self.selected_tower_key = None
+        self.tower_class_map = { # Map name from data to actual class
+            "Basic": Tower,
+            "Cannon": CannonTower
+            # Add future tower classes here
+        }
 
-        # --- Define Tower Buttons --- Add more tower types here later
+        # --- Define Tower Buttons from Data ---
         button_y = start_y
-        tower_types = [
-            (Tower, config.TOWER_ICON, "Basic Tower"),
-            (CannonTower, config.CANNON_TOWER_ICON, "Cannon")
-            # Add more tuples like (YourTowerClass, config.YOUR_ICON, "Your Name")
-        ]
+        # Iterate through the loaded tower_data dictionary
+        for tower_key, data in tower_data.items():
+            tower_class = self.tower_class_map.get(tower_key) # Get class from map
+            if not tower_class:
+                print(f"Warning: No class found for tower key '{tower_key}' in tower_class_map.")
+                continue
 
-        for tower_class, icon_path, name in tower_types:
             button = Button(button_y,
-                            tower_class,
-                            icon_path,
-                            name,
-                            tower_class.COST) # Get cost directly from class
+                            tower_key, # Pass tower_key instead of class to Button
+                            data.get("icon", "default_icon.png"), # Get icon path from data
+                            data.get("name", "Unknown Tower"), # Get name from data
+                            data.get("cost", 9999), # Get cost from data
+                            data.get("fallback_color", "GREY") # Pass fallback color name
+                           )
             self.buttons.append(button)
-            button_y += button.height + Button.PADDING # Space out buttons
+            button_y += button.height + Button.PADDING
 
-        # Set initial selection (optional)
+        # Set initial selection (key)
         if self.buttons:
-             self.selected_tower_type = self.buttons[0].tower_class
+             self.selected_tower_key = self.buttons[0].tower_key # Store key
 
     def handle_click(self, pos):
         # Check if click is within the panel area
@@ -99,14 +107,15 @@ class UIPanel:
         clicked_button = False
         for button in self.buttons:
             if button.is_clicked(pos):
-                self.selected_tower_type = button.tower_class
-                print(f"Selected {self.selected_tower_type.__name__}")
+                self.selected_tower_key = button.tower_key # Store selected key
+                print(f"Selected {self.selected_tower_key}")
                 clicked_button = True
                 break # Only select one button per click
         return clicked_button # Return True if a button was clicked
 
-    def get_selected_tower(self):
-        return self.selected_tower_type
+    def get_selected_tower_key(self):
+        """Returns the string key of the selected tower type."""
+        return self.selected_tower_key
 
     def draw(self, surface):
         # Draw panel background (optional, could just rely on buttons)
@@ -114,5 +123,6 @@ class UIPanel:
 
         # Draw buttons
         for button in self.buttons:
-            is_selected = (self.selected_tower_type == button.tower_class)
+            # Check selection based on key
+            is_selected = (self.selected_tower_key == button.tower_key)
             button.draw(surface, self.font, selected=is_selected) 
