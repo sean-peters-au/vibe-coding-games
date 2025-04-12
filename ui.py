@@ -1,6 +1,6 @@
 import pygame
 import config
-from entities import Tower, CannonTower, load_image # Need entity classes for info
+from entities import Tower, CannonTower, IceTower, load_image # Need entity classes for info
 
 class Button:
     """Represents a clickable button in the UI panel."""
@@ -72,7 +72,8 @@ class UIPanel:
         self.selected_tower_key = None
         self.tower_class_map = { # Map name from data to actual class
             "Basic": Tower,
-            "Cannon": CannonTower
+            "Cannon": CannonTower,
+            "Ice": IceTower # Add Ice Tower mapping
             # Add future tower classes here
         }
 

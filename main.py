@@ -2,12 +2,15 @@ import pygame
 import sys
 import config
 from map import GameMap
-from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, BaseProjectile, Effect
+from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, BaseProjectile, Effect, IceProjectile
 import math
-from ui import UIPanel # Import the UI Panel
-import json # Import JSON library
-import os # For path joining
-import game_data_manager # Import the data manager
+from ui import UIPanel
+import json
+import os
+import game_data_manager
+import sound_manager
+from wave_manager import WaveManager
+from modifiers import SlowModifier # Import SlowModifier
 
 def load_game_data(data_dir="data"):
     """Loads all JSON data files from the specified directory."""
@@ -29,12 +32,17 @@ def load_game_data(data_dir="data"):
     return data
 
 def main():
+    # Initialize Pygame modules
+    sound_manager.init_mixer() # Initialize sound system first
     pygame.init()
 
     # --- Load Game Data ---
     game_data = load_game_data()
-    # Initialize the central data manager
     game_data_manager.init_data(game_data)
+
+    # --- Preload Sounds ---
+    sound_manager.preload_sounds()
+
     # We might not need these local copies anymore, but keep for now
     tower_data = game_data['towers']
     projectile_data = game_data['projectiles']
@@ -48,6 +56,21 @@ def main():
     small_font = pygame.font.SysFont(None, 24) # Smaller font for selection text
     ui_font = pygame.font.SysFont(None, 20) # Font for UI panel text
 
+    # --- Define Class Maps (Before creating instances that need them) ---
+    # Need to define enemy map before WaveManager
+    ENEMY_CLASS_MAP = {
+        "Goblin": Enemy,
+        "Ogre": Enemy # Ogre uses the same Enemy class, just different data
+    }
+    # Define others here too for clarity
+    # Note: TOWER_CLASS_MAP depends on ui_panel, so it stays later for now
+    # If WaveManager needed tower classes, we'd need to rethink UI init
+    PROJECTILE_CLASS_MAP = {
+        "Basic": Projectile,
+        "Cannon": CannonProjectile,
+        "Ice": IceProjectile
+    }
+
     # Game state
     # Adjust map size to fit game area
     game_map = GameMap(config.GAME_AREA_WIDTH // config.TILE_SIZE, config.GRID_HEIGHT)
@@ -56,30 +79,19 @@ def main():
     projectiles = pygame.sprite.Group()
     player_money = config.STARTING_MONEY
     player_health = config.STARTING_HEALTH
-    wave_number = 0
-    last_spawn_time = 0
-    enemies_in_wave = 10
-    enemies_spawned_this_wave = 0
-    wave_active = False
+
     # Keep track of visual effects
     effects = pygame.sprite.Group()
     # selected_tower_type = Tower # Selection now handled by UI panel
 
-    # Create UI Panel
+    # Create Wave Manager (pass enemy class map)
+    wave_manager = WaveManager(enemy_class_map=ENEMY_CLASS_MAP)
+
+    # Create UI Panel (Needs tower_data)
     ui_panel = UIPanel(tower_data=tower_data, start_y=50, font=ui_font)
 
-    # Keep map from UI Panel for instantiation
+    # Get Tower Class Map from UI Panel (after it's created)
     TOWER_CLASS_MAP = ui_panel.tower_class_map
-    # Add enemy class map
-    ENEMY_CLASS_MAP = {
-        "Goblin": Enemy,
-        "Ogre": Enemy # Ogre uses the same Enemy class, just different data
-    }
-    # Add projectile class map for collision check
-    PROJECTILE_CLASS_MAP = {
-        "Basic": Projectile,
-        "Cannon": CannonProjectile
-    }
 
     running = True
     while running:
@@ -90,12 +102,9 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                 if event.key == pygame.K_SPACE and not wave_active: # Start next wave
-                      wave_active = True
-                      wave_number += 1
-                      enemies_spawned_this_wave = 0
-                      last_spawn_time = pygame.time.get_ticks() / 1000.0
-                      enemies_in_wave = 5 + wave_number * 2
+                 if event.key == pygame.K_SPACE and not wave_manager.is_wave_active(): # Check WaveManager state
+                      # Start the next wave via the manager
+                      wave_manager.start_next_wave()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1: # Left click
@@ -128,12 +137,16 @@ def main():
                                                  tower = TowerClass(grid_x, grid_y)
                                                  towers.add(tower)
                                                  player_money -= tower.cost # Use cost from instance
+                                                 # Play sound on successful placement
+                                                 sound_manager.play_sound(sound_manager.SOUND_CACHE.get(config.TOWER_PLACE_SOUND))
                                             else:
                                                  print(f"Error: Class not found for key '{selected_tower_key}'")
                                        else:
                                             print("Cannot place tower here.")
+                                            sound_manager.play_sound(sound_manager.SOUND_CACHE.get(config.ERROR_SOUND))
                                   else:
                                        print("Not enough money!")
+                                       sound_manager.play_sound(sound_manager.SOUND_CACHE.get(config.ERROR_SOUND))
                              else:
                                   print(f"Error: No data found for selected tower '{selected_tower_key}'")
                         else:
@@ -142,30 +155,13 @@ def main():
 
         # --- Game Logic ---
 
-        # Enemy Spawning (if wave is active)
-        current_time = pygame.time.get_ticks() / 1000.0
-        if wave_active and enemies_spawned_this_wave < enemies_in_wave:
-             if current_time - last_spawn_time >= config.ENEMY_SPAWN_RATE:
-                 # --- Spawn only Goblins for now --- #
-                 enemy_key = "Goblin"
-                 # if enemies_spawned_this_wave % 2 == 0:
-                 #      enemy_key = "Goblin"
-                 # else:
-                 #      enemy_key = "Ogre"
+        # Enemy Spawning (handled by WaveManager update)
+        wave_manager.update(dt, game_map, enemies) # Pass necessary arguments
 
-                 EnemyClass = ENEMY_CLASS_MAP.get(enemy_key)
-                 if EnemyClass:
-                      enemy = EnemyClass(game_map.get_path(), type_key=enemy_key)
-                      enemies.add(enemy)
-                      enemies_spawned_this_wave += 1
-                      last_spawn_time = current_time # Reset timer AFTER spawning
-                 else:
-                      print(f"Error: Class not found for enemy key '{enemy_key}'")
-
-        # Check if wave ended
-        if wave_active and enemies_spawned_this_wave == enemies_in_wave and len(enemies) == 0:
-             wave_active = False
-             print(f"Wave {wave_number} cleared!")
+        # Check if wave ended (All spawned AND all defeated)
+        if wave_manager.is_wave_active() and wave_manager.is_wave_complete() and len(enemies) == 0:
+             print(f"Wave {wave_manager.current_wave_number} cleared!")
+             wave_manager.end_wave() # Tell manager wave is over
              # Add bonus money, etc.
 
 
@@ -178,7 +174,12 @@ def main():
 
         # Remove enemies that reached the end (do this after iteration)
         for enemy in enemies_reached_end:
-             enemies.remove(enemy) # This calls kill() internally if not already killed
+             # Play reach end sound from enemy data
+             enemy_data = game_data_manager.get_enemy_data(enemy.type_key)
+             if enemy_data and enemy_data.get("reach_end_sound"):
+                  sound_manager.play_sound(sound_manager.load_sound(enemy_data["reach_end_sound"]))
+             # Remove the sprite AFTER playing sound (or it might not play)
+             enemies.remove(enemy)
 
 
         towers.update(dt, enemies, projectiles)
@@ -199,6 +200,11 @@ def main():
                 if not projectile.alive(): # Skip if projectile already handled (e.g. hit multiple enemies)
                     continue
 
+                # Play hit sound from projectile data
+                proj_data = game_data_manager.get_projectile_data(projectile.type_key)
+                if proj_data and proj_data.get("hit_sound"):
+                    sound_manager.play_sound(sound_manager.load_sound(proj_data["hit_sound"]))
+
                 # Record impact location BEFORE applying damage/killing projectile
                 impact_pos = projectile.rect.center
 
@@ -209,10 +215,12 @@ def main():
                 # Use class map to check projectile type by key
                 ProjectileClass = PROJECTILE_CLASS_MAP.get("Basic")
                 CannonProjectileClass = PROJECTILE_CLASS_MAP.get("Cannon")
+                IceProjectileClass = PROJECTILE_CLASS_MAP.get("Ice") # Get Ice class
 
                 # Check instance type carefully
                 is_cannon = CannonProjectileClass is not None and isinstance(projectile, CannonProjectileClass)
                 is_basic = ProjectileClass is not None and isinstance(projectile, ProjectileClass)
+                is_ice = IceProjectileClass is not None and isinstance(projectile, IceProjectileClass)
 
                 if is_cannon:
                     # Store cannon impact details for splash damage phase
@@ -220,6 +228,22 @@ def main():
                     if killed_by_direct_hit:
                         player_money += enemy.reward
                 elif is_basic:
+                     if killed_by_direct_hit:
+                          player_money += enemy.reward
+                elif is_ice:
+                     # Apply direct damage first
+                     enemy.take_damage(projectile.damage)
+                     killed_by_direct_hit = not enemy.alive()
+
+                     # Apply slow effect modifier in an area
+                     for target_enemy in enemies.sprites():
+                          if target_enemy.alive():
+                               dist = math.hypot(impact_pos[0] - target_enemy.rect.centerx, impact_pos[1] - target_enemy.rect.centery)
+                               if dist <= projectile.splash_radius:
+                                    # Create and add SlowModifier
+                                    slow_mod = SlowModifier(projectile.slow_factor, projectile.slow_duration)
+                                    target_enemy.add_modifier(slow_mod)
+
                      if killed_by_direct_hit:
                           player_money += enemy.reward
 
@@ -281,7 +305,7 @@ def main():
         # Draw UI
         health_text = font.render(f"Health: {player_health}", True, config.WHITE)
         money_text = font.render(f"Money: {player_money}", True, config.WHITE)
-        wave_text = font.render(f"Wave: {wave_number}", True, config.WHITE)
+        wave_text = font.render(f"Wave: {wave_manager.current_wave_number}", True, config.WHITE)
         screen.blit(health_text, (10, 10))
         screen.blit(money_text, (10, 50))
         screen.blit(wave_text, (config.SCREEN_WIDTH - 150, 10))
@@ -292,7 +316,8 @@ def main():
         #     True, config.WHITE)
         # screen.blit(selection_text, (10, config.SCREEN_HEIGHT - 50))
 
-        if not wave_active and player_health > 0:
+        # Display "Start Wave" prompt if wave is not active
+        if not wave_manager.is_wave_active() and player_health > 0:
              start_wave_text = font.render("Press SPACE to start next wave", True, config.WHITE)
              text_rect = start_wave_text.get_rect(center=(config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT - 30))
              screen.blit(start_wave_text, text_rect)

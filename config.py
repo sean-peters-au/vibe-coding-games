@@ -50,13 +50,9 @@ DIRT_TILE = "tiles/dirt.png"
 
 # Sound Paths (User needs to provide .wav or .ogg files)
 SOUND_DIR = "assets/sounds"
-SHOOT_SOUND_BASIC = "shoot_basic.wav"
-SHOOT_SOUND_CANNON = "shoot_cannon.wav"
-HIT_SOUND = "hit.wav"
-ENEMY_DIE_SOUND = "enemy_die.wav"
-ENEMY_REACH_END_SOUND = "reach_end.wav"
-TOWER_PLACE_SOUND = "place_tower.wav"
-ERROR_SOUND = "error.wav"
+# General UI/Game Sounds
+TOWER_PLACE_SOUND = "place_tower.mp3"
+ERROR_SOUND = "error.mp3"
 
 # Player stats
 STARTING_MONEY = 100

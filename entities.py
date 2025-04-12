@@ -1,8 +1,10 @@
 import pygame
 import config
 import math
-import os # Needed for path joining
-import game_data_manager # Import data manager
+import os
+import game_data_manager
+import sound_manager
+from modifiers import Modifier, SlowModifier # Import modifiers
 
 def load_image(filename, colorkey=None):
     """Loads an image, prepares it for play.
@@ -216,6 +218,11 @@ class Tower(BaseTower):
             # We know "Basic" tower uses "Basic" projectile
             projectile = Projectile(self.rect.center, self.target, type_key="Basic")
             projectiles.add(projectile)
+            # Get sound filename from data
+            tower_data = game_data_manager.get_tower_data(self.type_key)
+            if tower_data and tower_data.get("shoot_sound"):
+                 shoot_sound_file = tower_data["shoot_sound"]
+                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
 
 
 # --- Projectile Class (now inherits from BaseProjectile) ---
@@ -257,6 +264,7 @@ class Enemy(pygame.sprite.Sprite):
         else:
             # Set attributes from data
             self.speed = data.get("speed", 50)
+            self.base_speed = self.speed # Store original speed
             self.health = data.get("health", 50)
             self.max_health = self.health # Base max health on loaded health
             self.reward = data.get("reward", 5)
@@ -264,6 +272,9 @@ class Enemy(pygame.sprite.Sprite):
             animation_data = data.get("animation") # Get animation data
             scale_ratio = data.get("scale_ratio", 0.6) # Load scale ratio
             fallback_color_name = data.get("fallback_color", "RED")
+
+        # List to hold active modifiers
+        self.modifiers = []
 
         # --- Animation or Static Image Loading ---
         self.animation_frames = []
@@ -368,10 +379,44 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.center = (self.x, self.y)
         return False # Still moving
 
+    def add_modifier(self, new_modifier):
+        """Adds a modifier to the enemy, replacing existing of same type."""
+        # Simple replacement logic for now
+        # Check if a modifier of the same type already exists
+        existing_modifier = None
+        for i, mod in enumerate(self.modifiers):
+            if isinstance(mod, type(new_modifier)):
+                # Remove existing modifier effect before replacing
+                mod.remove() # This will also remove it from the list via super().remove()
+                # We might need to break here if remove() modified the list during iteration
+                # Let's re-find it after potential removal
+                found_after_remove = False
+                for j, check_mod in enumerate(self.modifiers):
+                     if isinstance(check_mod, type(new_modifier)):
+                          # Should not happen if remove worked correctly
+                          print("Warning: Old modifier not removed correctly?")
+                          del self.modifiers[j]
+                          found_after_remove = True
+                          break
+                break # Exit outer loop once type is found and handled
+
+        # Add and apply the new modifier
+        self.modifiers.append(new_modifier)
+        new_modifier.apply(self) # Apply effect immediately
+
+    def remove_modifier(self, modifier_to_remove):
+        """Removes a specific modifier instance."""
+        if modifier_to_remove in self.modifiers:
+             self.modifiers.remove(modifier_to_remove)
+
     def take_damage(self, amount):
         self.health -= amount
         if self.health <= 0:
-            self.kill() # Remove sprite from all groups
+            self.kill()
+            # Play death sound from enemy data
+            enemy_data = game_data_manager.get_enemy_data(self.type_key)
+            if enemy_data and enemy_data.get("die_sound"):
+                sound_manager.play_sound(sound_manager.load_sound(enemy_data["die_sound"]))
 
     def draw_health_bar(self, surface):
          if self.health < self.max_health:
@@ -396,7 +441,12 @@ class Enemy(pygame.sprite.Sprite):
         self.draw_health_bar(surface)
 
     def update(self, dt):
-        self._animate() # Call animation update
+        # Update modifiers and remove expired ones
+        # Iterate over a copy of the list because remove_modifier modifies it
+        for mod in self.modifiers[:]:
+            mod.update(dt)
+
+        self._animate()
         reached_end = self.move(dt)
         return reached_end
 
@@ -413,6 +463,11 @@ class CannonTower(BaseTower):
             # "Cannon" tower uses "Cannon" projectile
             projectile = CannonProjectile(self.rect.center, self.target, type_key="Cannon")
             projectiles.add(projectile)
+            # Get sound filename from data
+            tower_data = game_data_manager.get_tower_data(self.type_key)
+            if tower_data and tower_data.get("shoot_sound"):
+                 shoot_sound_file = tower_data["shoot_sound"]
+                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
 
 
 # --- Cannon Projectile Class ---
@@ -421,6 +476,31 @@ class CannonProjectile(BaseProjectile):
     def __init__(self, start_pos, target_enemy, type_key="Cannon"):
         super().__init__(start_pos, target_enemy, type_key)
         # Base __init__ handles loading data (including splash_radius) 
+
+# --- Ice Tower Class ---
+class IceTower(BaseTower):
+    def __init__(self, grid_x, grid_y):
+        super().__init__(grid_x, grid_y, type_key="Ice")
+
+    def shoot(self, projectiles):
+        if self.target:
+            projectile = IceProjectile(self.rect.center, self.target, type_key="Ice")
+            projectiles.add(projectile)
+            # Play sound (fetched from data in base class or specific sound here)
+            tower_data = game_data_manager.get_tower_data(self.type_key)
+            if tower_data and tower_data.get("shoot_sound"):
+                 shoot_sound_file = tower_data["shoot_sound"]
+                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
+
+
+# --- Ice Projectile Class ---
+class IceProjectile(BaseProjectile):
+    def __init__(self, start_pos, target_enemy, type_key="Ice"):
+        super().__init__(start_pos, target_enemy, type_key)
+        data = game_data_manager.get_projectile_data(type_key)
+        self.slow_factor = data.get("slow_factor", 1.0)
+        self.slow_duration = data.get("slow_duration", 0)
+        # BaseProjectile loads splash_radius, accessible as self.splash_radius
 
 # --- Visual Effect Class ---
 class Effect(pygame.sprite.Sprite):
