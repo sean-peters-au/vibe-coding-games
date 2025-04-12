@@ -2,7 +2,7 @@ import pygame
 import sys
 import config
 from map import GameMap
-from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, BaseProjectile, Effect, IceProjectile
+from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, BaseProjectile, Effect, IceProjectile, load_image
 import math
 from ui import UIPanel
 import json
@@ -10,7 +10,7 @@ import os
 import game_data_manager
 import sound_manager
 from wave_manager import WaveManager
-from modifiers import SlowModifier # Import SlowModifier
+from modifiers import SlowModifier
 
 def load_game_data(data_dir="data"):
     """Loads all JSON data files from the specified directory."""
@@ -55,6 +55,22 @@ def main():
     font = pygame.font.SysFont(None, 36) # Font for UI text
     small_font = pygame.font.SysFont(None, 24) # Smaller font for selection text
     ui_font = pygame.font.SysFont(None, 20) # Font for UI panel text
+    status_font = pygame.font.SysFont(None, 28) # Font for status bar
+
+    # --- Load UI Icons (with fallback) ---
+    heart_icon, _ = load_image(config.HEART_ICON)
+    coin_icon, _ = load_image(config.COIN_ICON)
+    # Scale icons
+    icon_size = (24, 24) # Desired icon size
+    if heart_icon:
+        heart_icon = pygame.transform.smoothscale(heart_icon, icon_size)
+    if coin_icon:
+        coin_icon = pygame.transform.smoothscale(coin_icon, icon_size)
+    # Load next wave icon
+    next_wave_icon, _ = load_image(config.NEXT_WAVE_ICON)
+    if next_wave_icon:
+        next_wave_icon = pygame.transform.smoothscale(next_wave_icon, icon_size)
+    # --- End Load UI Icons ---
 
     # --- Define Class Maps (Before creating instances that need them) ---
     # Need to define enemy map before WaveManager
@@ -302,33 +318,68 @@ def main():
         projectiles.draw(screen)
         effects.draw(screen) # Draw visual effects
 
-        # Draw UI
-        health_text = font.render(f"Health: {player_health}", True, config.WHITE)
-        money_text = font.render(f"Money: {player_money}", True, config.WHITE)
-        wave_text = font.render(f"Wave: {wave_manager.current_wave_number}", True, config.WHITE)
-        screen.blit(health_text, (10, 10))
-        screen.blit(money_text, (10, 50))
-        screen.blit(wave_text, (config.SCREEN_WIDTH - 150, 10))
+        # Draw UI Elements
+        # Status Bar (drawn over game area)
+        draw_status_bar(screen, player_health, player_money, wave_manager.current_wave_number, heart_icon, coin_icon, status_font)
 
-        # Draw selected tower type info (REMOVED - Handled by panel)
-        # selection_text = small_font.render(
-        #     f"Selected: {selected_tower_type.__name__} (Cost: {selected_tower_type.COST}) [Keys 1, 2]",
-        #     True, config.WHITE)
-        # screen.blit(selection_text, (10, config.SCREEN_HEIGHT - 50))
-
-        # Display "Start Wave" prompt if wave is not active
-        if not wave_manager.is_wave_active() and player_health > 0:
-             start_wave_text = font.render("Press SPACE to start next wave", True, config.WHITE)
-             text_rect = start_wave_text.get_rect(center=(config.SCREEN_WIDTH // 2, config.SCREEN_HEIGHT - 30))
-             screen.blit(start_wave_text, text_rect)
-
-        # Draw UI Panel
+        # UI Panel (drawn in its own area)
         ui_panel.draw(screen)
+
+        # Draw "Start Wave" prompt (Improved Location/Style Needed Later)
+        if not wave_manager.is_wave_active() and player_health > 0:
+            # Use an icon and less intrusive text
+            prompt_y = config.SCREEN_HEIGHT - 30
+            prompt_text = small_font.render("Next Wave (SPACE)", True, config.WHITE)
+            # Center based on game area width
+            prompt_rect = prompt_text.get_rect(center=(config.GAME_AREA_WIDTH // 2, prompt_y))
+
+            if next_wave_icon:
+                # Position icon to the left of text
+                icon_rect = next_wave_icon.get_rect(midright=(prompt_rect.left - 5, prompt_y))
+                screen.blit(next_wave_icon, icon_rect)
+                screen.blit(prompt_text, prompt_rect)
+            else:
+                # Fallback: just draw text if icon missing
+                screen.blit(prompt_text, prompt_rect)
 
         pygame.display.flip() # Update the full screen
 
     pygame.quit()
     sys.exit()
+
+# --- Helper Functions ---
+def draw_status_bar(surface, health, money, wave, heart_icon, coin_icon, font):
+    """Draws the top status bar with icons and text."""
+    bar_height = 40 # Height of the status bar
+    bar_rect = pygame.Rect(0, 0, config.GAME_AREA_WIDTH, bar_height)
+    pygame.draw.rect(surface, config.STATUS_BAR_BG_COLOR, bar_rect)
+
+    padding = 10
+    icon_text_padding = 5
+    current_x = padding
+
+    # Health
+    if heart_icon:
+        surface.blit(heart_icon, (current_x, (bar_height - heart_icon.get_height()) // 2))
+        current_x += heart_icon.get_width() + icon_text_padding
+    health_text = font.render(f"{health}", True, config.WHITE)
+    health_rect = health_text.get_rect(midleft=(current_x, bar_height // 2))
+    surface.blit(health_text, health_rect)
+    current_x += health_rect.width + padding * 2 # Add more space before next item
+
+    # Money
+    if coin_icon:
+        surface.blit(coin_icon, (current_x, (bar_height - coin_icon.get_height()) // 2))
+        current_x += coin_icon.get_width() + icon_text_padding
+    money_text = font.render(f"{money}", True, config.WHITE)
+    money_rect = money_text.get_rect(midleft=(current_x, bar_height // 2))
+    surface.blit(money_text, money_rect)
+    current_x += money_rect.width + padding * 2
+
+    # Wave (align to right)
+    wave_text = font.render(f"Wave: {wave}", True, config.WHITE)
+    wave_rect = wave_text.get_rect(midright=(config.GAME_AREA_WIDTH - padding, bar_height // 2))
+    surface.blit(wave_text, wave_rect)
 
 if __name__ == '__main__':
     main() 

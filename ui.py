@@ -4,8 +4,8 @@ from entities import Tower, CannonTower, IceTower, load_image # Need entity clas
 
 class Button:
     """Represents a clickable button in the UI panel."""
-    ICON_SIZE = 48 # Size of the tower icon
-    PADDING = 10 # Padding around elements
+    ICON_SIZE = 40 # Reduced from 48
+    PADDING = 8 # Reduced from 10
 
     def __init__(self, y, tower_key, icon_path, name, cost, fallback_color_name):
         self.tower_key = tower_key # Store the key
@@ -16,7 +16,7 @@ class Button:
 
         # Button area rectangle
         self.width = config.UI_PANEL_WIDTH - 2 * self.PADDING
-        self.height = self.ICON_SIZE + 2 * self.PADDING # Height based on icon + padding
+        self.height = self.ICON_SIZE + 4 * self.PADDING # Make button taller to fit text
         self.rect = pygame.Rect(config.GAME_AREA_WIDTH + self.PADDING,
                                y,
                                self.width,
@@ -34,8 +34,8 @@ class Button:
              # Scale loaded icon if needed
              self.icon_image = pygame.transform.scale(self.icon_image, (self.ICON_SIZE, self.ICON_SIZE))
 
-        # Position icon within the button rect
-        self.icon_rect = self.icon_image.get_rect(center=(self.rect.centerx, self.rect.centery - self.PADDING // 2)) # Center icon slightly above center line
+        # Position icon within the button rect (slightly higher)
+        self.icon_rect = self.icon_image.get_rect(center=(self.rect.centerx, self.rect.top + self.ICON_SIZE // 2 + self.PADDING))
 
     def draw(self, surface, font, selected=False):
         # Draw button background
@@ -53,8 +53,9 @@ class Button:
         name_text = font.render(f"{self.name}", True, config.WHITE)
         cost_text = font.render(f"Cost: {self.cost}", True, config.WHITE)
 
-        name_rect = name_text.get_rect(center=(self.rect.centerx, self.icon_rect.bottom + self.PADDING))
-        cost_rect = cost_text.get_rect(center=(self.rect.centerx, name_rect.bottom + self.PADDING // 2))
+        # Position text below icon, within button bounds
+        name_rect = name_text.get_rect(center=(self.rect.centerx, self.icon_rect.bottom + self.PADDING * 1.5))
+        cost_rect = cost_text.get_rect(center=(self.rect.centerx, name_rect.bottom + self.PADDING))
 
         surface.blit(name_text, name_rect)
         surface.blit(cost_text, cost_rect)
