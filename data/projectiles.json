@@ -1,0 +1,34 @@
+{
+    "Basic": {
+        "image": "projectiles/arrow.png",
+        "speed": 300,
+        "damage": 25,
+        "scale_ratio": 0.6,
+        "fallback_size_ratio": 0.2,
+        "fallback_color": "YELLOW",
+        "hit_sound": "hit_arrow.mp3"
+    },
+    "Cannon": {
+        "image": "projectiles/cannon.png",
+        "speed": 200,
+        "damage": 50,
+        "splash_radius": 200,
+        "splash_image": "projectiles/cannon_splash.png",
+        "scale_ratio": 0.6,
+        "fallback_size_ratio": 0.3,
+        "fallback_color": "ORANGE",
+        "hit_sound": "hit_cannon.wav"
+    },
+    "Ice": {
+        "image": "projectiles/ice_shard.png",
+        "speed": 250,
+        "damage": 10,
+        "slow_factor": 0.5,
+        "slow_duration": 2.0,
+        "splash_radius": 100,
+        "scale_ratio": 0.4,
+        "fallback_size_ratio": 0.2,
+        "fallback_color": "CYAN",
+        "hit_sound": "hit_ice.wav"
+    }
+} 

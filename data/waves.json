@@ -1,0 +1,29 @@
+[
+    {
+        "wave": 1,
+        "enemies": [
+            {"type": "Goblin", "count": 10, "spawn_delay": 1.5} 
+        ]
+    },
+    {
+        "wave": 2,
+        "enemies": [
+            {"type": "Goblin", "count": 15, "spawn_delay": 1.2}
+        ]
+    },
+    {
+        "wave": 3,
+        "enemies": [
+            {"type": "Goblin", "count": 10, "spawn_delay": 1.0},
+            {"type": "Ogre",   "count": 2,  "spawn_delay": 3.0} 
+        ]
+    },
+    {
+        "wave": 4,
+        "enemies": [
+            {"type": "Goblin", "count": 5,  "spawn_delay": 0.8},
+            {"type": "Ogre",   "count": 4,  "spawn_delay": 2.5},
+            {"type": "Goblin", "count": 10, "spawn_delay": 0.8} 
+        ]
+    }
+] 

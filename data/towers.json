@@ -1,0 +1,41 @@
+{
+    "Basic": {
+        "name": "Guard Tower",
+        "image": "towers/guard_tower.png",
+        "icon": "towers/guard_tower.png",
+        "cost": 50,
+        "range": 150,
+        "fire_rate": 1.0,
+        "projectile_type": "Basic",
+        "scale_ratio": 1.5,
+        "fallback_size_ratio": 0.8,
+        "fallback_color": "BLUE",
+        "shoot_sound": "shoot_basic.mp3"
+    },
+    "Cannon": {
+        "name": "Cannon",
+        "image": "towers/cannon_tower.png",
+        "icon": "towers/cannon_tower.png",
+        "cost": 100,
+        "range": 180,
+        "fire_rate": 2.5,
+        "projectile_type": "Cannon",
+        "scale_ratio": 1.6,
+        "fallback_size_ratio": 0.9,
+        "fallback_color": "DARK_RED",
+        "shoot_sound": "shoot_cannon.mp3"
+    },
+    "Ice": {
+        "name": "Ice Tower",
+        "image": "towers/ice_tower.png",
+        "icon": "towers/ice_tower.png",
+        "cost": 75,
+        "range": 130,
+        "fire_rate": 1.2,
+        "projectile_type": "Ice",
+        "scale_ratio": 1.0,
+        "fallback_size_ratio": 0.8,
+        "fallback_color": "CYAN",
+        "shoot_sound": "shoot_snow.mp3"
+    }
+} 

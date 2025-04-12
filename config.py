@@ -47,6 +47,13 @@ COLOR_MAP = {
 ASSET_DIR = "assets"
 GRASS_TILE = "tiles/grass.png"
 DIRT_TILE = "tiles/dirt.png"
+# UI Icons (User needs to provide)
+HEART_ICON = "icons/heart.png"
+COIN_ICON = "icons/coin.png"
+NEXT_WAVE_ICON = "icons/next_wave.png"
+
+# UI Colors
+STATUS_BAR_BG_COLOR = (40, 40, 40) # Slightly darker grey for status bar
 
 # Sound Paths (User needs to provide .wav or .ogg files)
 SOUND_DIR = "assets/sounds"

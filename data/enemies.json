@@ -1,0 +1,40 @@
+{
+    "Goblin": {
+        "name": "Goblin",
+        "animation": {
+            "frames": [
+                "enemies/goblin_frame_1.png",
+                "enemies/goblin_frame_2.png",
+                "enemies/goblin_frame_3.png"
+            ],
+            "speed": 150
+        },
+        "speed": 60,
+        "health": 60,
+        "reward": 8,
+        "scale_ratio": 1.2,
+        "fallback_size_ratio": 0.6,
+        "fallback_color": "GREEN",
+        "die_sound": "goblin_die.mp3",
+        "reach_end_sound": "goblin_reach_end.wav"
+    },
+    "Ogre": {
+        "name": "Ogre",
+        "animation": {
+            "frames": [
+                "enemies/ogre_frame_1.png",
+                "enemies/ogre_frame_2.png",
+                "enemies/ogre_frame_3.png"
+            ],
+            "speed": 120
+        },
+        "speed": 40,
+        "health": 250,
+        "reward": 20,
+        "scale_ratio": 1.5,
+        "fallback_size_ratio": 0.8,
+        "fallback_color": "BROWN",
+        "die_sound": "ogre_die.mp3",
+        "reach_end_sound": "ogre_reach_end.wav"
+    }
+} 
