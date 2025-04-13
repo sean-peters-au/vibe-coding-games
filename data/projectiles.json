@@ -11,8 +11,8 @@
     "Cannon": {
         "image": "projectiles/cannon.png",
         "speed": 200,
-        "damage": 50,
-        "splash_radius": 200,
+        "damage": 40,
+        "splash_radius": 180,
         "splash_image": "projectiles/cannon_splash.png",
         "scale_ratio": 0.6,
         "fallback_size_ratio": 0.3,

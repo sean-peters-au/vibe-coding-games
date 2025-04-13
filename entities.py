@@ -333,6 +333,7 @@ class Enemy(pygame.sprite.Sprite):
             animation_data = None
             scale_ratio = 0.6
             fallback_color_name = "RED"
+            self.is_flying = False # Load flying flag
         else:
             # Set attributes from data
             self.speed = data.get("speed", 50)
@@ -345,6 +346,7 @@ class Enemy(pygame.sprite.Sprite):
             animation_data = data.get("animation") # Get animation data
             scale_ratio = data.get("scale_ratio", 0.6) # Load scale ratio
             fallback_color_name = data.get("fallback_color", "RED")
+            self.is_flying = data.get("is_flying", False) # Load flying flag
 
         # List to hold active modifiers
         self.modifiers = []
@@ -504,7 +506,16 @@ class Enemy(pygame.sprite.Sprite):
              pygame.draw.rect(surface, config.GREEN, health_rect)
 
     def draw(self, surface):
-        surface.blit(self.image, self.rect)
+        # Start with the base image (or current animation frame)
+        image_to_draw = self.image
+
+        # Apply visual effects from modifiers
+        for mod in self.modifiers:
+            image_to_draw = mod.apply_visuals(image_to_draw)
+
+        # Draw the (potentially modified) image
+        surface.blit(image_to_draw, self.rect)
+        # Draw health bar on top
         self.draw_health_bar(surface)
 
     def update(self, dt):
@@ -636,17 +647,23 @@ class Effect(pygame.sprite.Sprite):
     def __init__(self, pos, image_path, duration_ms, asset_manager, data_manager, target_size=None):
         super().__init__()
         self.asset_manager = asset_manager
-        self.data_manager = data_manager # Store it
-        self.image = asset_manager.load_image(image_path)
+        self.data_manager = data_manager
+        # Unpack the tuple from load_image
+        image_surface, _ = asset_manager.load_image(image_path)
+        self.image = image_surface # Assign the surface to self.image
+
         if not self.image:
             print(f"Warning: Failed to load effect image {image_path}. Effect won't display.")
             self.kill()
             return
 
-        # Scale the image if target_size is provided
+        # Get initial rect from loaded surface before potential scaling
+        self.rect = self.image.get_rect()
+
         if target_size:
             try:
-                self.image = pygame.transform.smoothscale(self.image, target_size)
+                # Scale the surface stored in self.image
+                self.image = pygame.transform.smoothscale(self.image.copy(), target_size)
                 self.rect = self.image.get_rect() # Update rect after scaling
             except ValueError as e:
                 print(f"Error scaling effect image {image_path} to {target_size}: {e}")

@@ -3,7 +3,8 @@ import pygame
 import os
 import json
 import game_data_manager
-from entities import Enemy # Assuming Enemy class is sufficient for now
+import config
+from entities import Enemy
 
 class WaveManager:
     def __init__(self, data_manager, asset_manager, waves_filepath="data/waves.json"):
@@ -26,6 +27,8 @@ class WaveManager:
         self.enemies_spawned_this_wave = 0
         # Get enemy class map from data_manager
         self.enemy_class_map = self.data_manager.enemy_classes
+        self.between_waves_timer = 0.0 # Timer for delay between waves
+        self.waiting_for_next_wave = False # Flag indicating delay is active
 
     def start_next_wave(self):
         """Starts the next available wave."""
@@ -59,9 +62,19 @@ class WaveManager:
         return True # Wave started successfully
 
     def update(self, dt, game_map, enemies_group):
-        """Handles enemy spawning logic for the active wave."""
+        """Handles spawning and inter-wave delay timing."""
+        # Handle inter-wave delay
+        if self.waiting_for_next_wave:
+            self.between_waves_timer -= dt
+            if self.between_waves_timer <= 0:
+                self.waiting_for_next_wave = False
+                self.start_next_wave() # Automatically start next wave
+            else:
+                return # Still waiting, don't spawn
+
+        # Spawning logic (only runs if wave active and not waiting)
         if not self.wave_active or not self.spawn_groups:
-            return # Wave not active or no more groups to spawn
+            return
 
         current_time = pygame.time.get_ticks() / 1000.0
 
@@ -112,7 +125,10 @@ class WaveManager:
          self.wave_active = False
          self.wave_data = None
          self.spawn_groups = []
-         print(f"Wave {self.current_wave_number} ended.")
+         print(f"Wave {self.current_wave_number} ended. Starting delay...")
+         # Start the timer for the delay before the next wave
+         self.between_waves_timer = config.INTER_WAVE_DELAY
+         self.waiting_for_next_wave = True
 
     def get_wave_definitions(self):
         return self.waves

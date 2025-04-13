@@ -43,8 +43,8 @@ class DataManager:
 
         self.enemy_classes = {
             "Goblin": Enemy,
-            "Ogre": Enemy
-            # Add new enemy classes here (e.g., "Flyer": FlyingEnemy)
+            "Ogre": Enemy,
+            "Dragon": Enemy,
         }
         self.tower_classes = {
             "Basic": Tower,
@@ -52,7 +52,6 @@ class DataManager:
             "Ice": IceTower,
             "GoldMine": GoldMine,
             "BountyHunter": BountyHunterTower
-            # Add new tower classes here
         }
         self.projectile_classes = {
             "Basic": Projectile,

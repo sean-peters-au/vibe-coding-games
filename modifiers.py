@@ -28,6 +28,12 @@ class Modifier:
             self.target.remove_modifier(self)
             # print(f"Removing {self.__class__.__name__} from {self.target}") # Debug
 
+    def apply_visuals(self, surface):
+        """Optionally implemented by subclasses to modify the target's drawing surface.
+           Should return the modified surface.
+        """
+        return surface # Default: no visual change
+
     # Optional: Methods for stacking behavior if needed
 
 class SlowModifier(Modifier):
@@ -57,4 +63,14 @@ class SlowModifier(Modifier):
             # it will recalculate from base speed.
             self.target.speed = self.target.base_speed
             # print(f"Removed SlowModifier: Speed -> {self.target.speed}") # Debug
-        super().remove() # Call base remove to detach from target 
+        super().remove() # Call base remove to detach from target
+
+    def apply_visuals(self, surface):
+        """Applies a blue tint to the surface."""
+        # Create a copy to avoid modifying the original cached image
+        tinted_surface = surface.copy()
+        # Fill with blue, special blend flag preserves alpha and adds color
+        tinted_surface.fill((0, 100, 200, 100), special_flags=pygame.BLEND_RGBA_ADD)
+        # Alternative: Use multiplication for a different tint effect
+        # tinted_surface.fill((128, 128, 255, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        return tinted_surface 

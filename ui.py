@@ -148,7 +148,7 @@ class UIPanel:
         """Returns the string key of the selected tower type."""
         return self.selected_tower_key
 
-    def draw(self, surface, health, money, wave_num, is_wave_active):
+    def draw(self, surface, health, money, wave_num, is_wave_active, waiting_for_next, timer):
         # Draw Tower Selection Panel Background (Optional)
         # pygame.draw.rect(surface, config.UI_BG_COLOR, self.rect)
 
@@ -161,9 +161,9 @@ class UIPanel:
         # Draw Status Bar
         self._draw_status_bar(surface, health, money, wave_num)
 
-        # Draw Wave Prompt
-        if not is_wave_active and health > 0:
-            self._draw_wave_prompt(surface)
+        # Draw Wave Prompt / Timer
+        if waiting_for_next and health > 0:
+            self._draw_wave_timer(surface, timer)
 
     def _draw_status_bar(self, surface, health, money, wave):
         """Draws the top status bar with icons and text."""
@@ -199,11 +199,17 @@ class UIPanel:
         wave_rect = wave_text.get_rect(midright=(config.GAME_AREA_WIDTH - padding, bar_height // 2))
         surface.blit(wave_text, wave_rect)
 
-    def _draw_wave_prompt(self, surface):
-        """Draws the prompt to start the next wave."""
+    def _draw_wave_timer(self, surface, timer):
+        """Draws the countdown timer between waves."""
         prompt_y = config.SCREEN_HEIGHT - 30
-        prompt_text = self.prompt_font.render("Next Wave (SPACE)", True, config.WHITE)
+        # Format timer to one decimal place
+        timer_text = f"{timer:.1f}s"
+        prompt_text = self.prompt_font.render(f"Next Wave In: {timer_text}", True, config.WHITE)
         prompt_rect = prompt_text.get_rect(center=(config.GAME_AREA_WIDTH // 2, prompt_y))
+
+        # Draw background box? (Optional)
+        # box_rect = prompt_rect.inflate(20, 10)
+        # pygame.draw.rect(surface, config.STATUS_BAR_BG_COLOR, box_rect, border_radius=5)
 
         if self.next_wave_icon:
             icon_rect = self.next_wave_icon.get_rect(midright=(prompt_rect.left - 5, prompt_y))

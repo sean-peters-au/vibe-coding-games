@@ -10,7 +10,7 @@
             "speed": 150
         },
         "speed": 60,
-        "health": 60,
+        "health": 90,
         "reward": 8,
         "scale_ratio": 1.2,
         "fallback_size_ratio": 0.6,
@@ -29,12 +29,33 @@
             "speed": 120
         },
         "speed": 40,
-        "health": 250,
+        "health": 300,
         "reward": 20,
         "scale_ratio": 1.5,
         "fallback_size_ratio": 0.8,
         "fallback_color": "BROWN",
         "die_sound": "ogre_die.mp3",
         "reach_end_sound": "ogre_reach_end.wav"
+    },
+    "Dragon": {
+        "name": "Dragon",
+        "animation": {
+            "frames": [
+                "enemies/dragon_fly_1.png",
+                "enemies/dragon_fly_2.png",
+                "enemies/dragon_fly_3.png",
+                "enemies/dragon_fly_4.png"
+            ],
+            "speed": 100 
+        },
+        "speed": 55, 
+        "health": 500,
+        "reward": 50,
+        "is_flying": true,
+        "scale_ratio": 1.1, 
+        "fallback_size_ratio": 1.0,
+        "fallback_color": "DARK_RED",
+        "die_sound": "dragon_die.wav", 
+        "reach_end_sound": "dragon_reach_end.wav"
     }
 } 

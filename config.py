@@ -66,8 +66,9 @@ TOWER_PLACE_SOUND = "place_tower.mp3"
 ERROR_SOUND = "error.mp3"
 
 # Player stats
-STARTING_MONEY = 300
+STARTING_MONEY = 100
 STARTING_HEALTH = 20
 
 # Enemy stats
 ENEMY_SPAWN_RATE = 0.75 # Seconds between spawns
+INTER_WAVE_DELAY = 5.0 # Seconds between end of wave and start of next

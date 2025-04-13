@@ -35,17 +35,17 @@ class GameState:
 
 class PlayingState(GameState):
     """The main state where the core tower defense gameplay happens."""
+    def enter_state(self):
+        """Called when entering the playing state."""
+        print("Entering Playing State - Starting initial wave delay.")
+        # Simulate the end of wave 0 to trigger the timer for wave 1
+        self.game.wave_manager.end_wave()
+
     def handle_events(self, events):
         for event in events:
-            # Handle QUIT event globally? Or per state?
-            # if event.type == pygame.QUIT:
-            #     self.game.running = False 
             if event.type == pygame.KEYDOWN:
                  if event.key == pygame.K_ESCAPE:
-                      self.game.running = False # For now, Esc quits game
-                      # Later: transition to PauseState or MenuState
-                 if event.key == pygame.K_SPACE and not self.game.wave_manager.is_wave_active():
-                      self.game.wave_manager.start_next_wave()
+                      self.game.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1: # Left click
@@ -202,5 +202,7 @@ class PlayingState(GameState):
             self.game.player_health,
             self.game.player_money,
             self.game.wave_manager.current_wave_number,
-            self.game.wave_manager.is_wave_active()
+            self.game.wave_manager.is_wave_active(),
+            self.game.wave_manager.waiting_for_next_wave,
+            self.game.wave_manager.between_waves_timer
         )
