@@ -1,6 +1,6 @@
 import pygame
 import config
-from entities import Tower, CannonTower, IceTower
+from entities import Tower, CannonTower, IceTower, BountyHunterTower, GoldMine
 
 class Button:
     """Represents a clickable button in the UI panel."""
@@ -83,6 +83,14 @@ class UIPanel:
         self.selected_tower_key = None
         self.data_manager = data_manager
         self.asset_manager = asset_manager
+        # Ensure class map is defined within __init__
+        self.tower_class_map = {
+            "Basic": Tower,
+            "Cannon": CannonTower,
+            "Ice": IceTower,
+            "GoldMine": GoldMine,
+            "BountyHunter": BountyHunterTower
+        }
 
         # --- Load Status Icons ---
         self.status_font = pygame.font.SysFont(None, 28) # Font for status bar

@@ -30,5 +30,15 @@
         "fallback_size_ratio": 0.2,
         "fallback_color": "CYAN",
         "hit_sound": "hit_ice.wav"
+    },
+    "CoinShot": {
+        "image": "projectiles/coin_shot.png",
+        "speed": 350,
+        "damage": 5,
+        "awards_bounty_on_kill": true,
+        "scale_ratio": 0.3,
+        "fallback_size_ratio": 0.2,
+        "fallback_color": "GOLD",
+        "hit_sound": "hit_coin.wav"
     }
 } 

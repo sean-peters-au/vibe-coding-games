@@ -27,6 +27,8 @@ ORANGE = (255, 165, 0)
 UI_BG_COLOR = (50, 50, 50) # Dark grey for UI panel
 UI_BORDER_COLOR = (100, 100, 100) # Lighter grey for borders
 UI_HIGHLIGHT_COLOR = (255, 255, 0) # Yellow highlight for selection
+CYAN = (0, 255, 255)
+GOLD = (255, 215, 0) # For gold mine fallback
 
 # Map color names used in JSON data to RGB tuples
 COLOR_MAP = {
@@ -40,7 +42,9 @@ COLOR_MAP = {
     "GREY": GREY,
     "DARK_GREEN": DARK_GREEN,
     "BROWN": BROWN,
-    "ORANGE": ORANGE
+    "ORANGE": ORANGE,
+    "CYAN": CYAN,
+    "GOLD": GOLD
 }
 
 # Asset Paths
@@ -62,7 +66,7 @@ TOWER_PLACE_SOUND = "place_tower.mp3"
 ERROR_SOUND = "error.mp3"
 
 # Player stats
-STARTING_MONEY = 100
+STARTING_MONEY = 300
 STARTING_HEALTH = 20
 
 # Enemy stats

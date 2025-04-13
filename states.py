@@ -52,8 +52,25 @@ class PlayingState(GameState):
                     mouse_pos = event.pos
                     # --- UI Panel Click Handling ---
                     ui_clicked = self.game.ui_panel.handle_click(mouse_pos)
-                    # --- Game Area Click Handling ---
-                    if not ui_clicked and mouse_pos[0] < config.GAME_AREA_WIDTH:
+
+                    # --- Tower Click Handling ---
+                    tower_clicked = False
+                    if not ui_clicked:
+                        for tower in self.game.towers:
+                            if tower.rect.collidepoint(mouse_pos):
+                                if hasattr(tower, 'on_click'):
+                                    # Pass self (the PlayingState) to on_click
+                                    if tower.on_click(self):
+                                        tower_clicked = True
+                                        break # Only click one tower at a time
+                                else:
+                                     # Clicked a non-clickable tower (like Cannon)
+                                     # Could potentially show tower info/upgrade UI here
+                                     pass
+                        
+                    # --- Game Area Click Handling (Placement) ---
+                    # Only try placing if not clicking UI or an existing tower
+                    if not ui_clicked and not tower_clicked and mouse_pos[0] < config.GAME_AREA_WIDTH:
                          self._handle_place_tower(mouse_pos)
 
     def _handle_place_tower(self, mouse_pos):
@@ -126,18 +143,28 @@ class PlayingState(GameState):
         # --- Check for Enemy Kills and Award Money ---
         for enemy in list(self.game.enemies.sprites()):
             if not enemy.alive():
-                # Potential issue: If multiple projectiles kill enemy in same frame, might award multiple times.
-                # Need to ensure reward happens only once per enemy death.
-                # Add a simple check or flag?
-                if not hasattr(enemy, '_awarded') or not enemy._awarded:
-                     self.game.player_money += enemy.reward
-                     print(f"Enemy {enemy.type_key} killed! +{enemy.reward} money.")
-                     enemy._awarded = True # Mark as awarded
-                # Enemy is removed later or by kill()
+                # Check if killed by bounty shot
+                if hasattr(enemy, '_killed_by_bounty') and enemy._killed_by_bounty:
+                     if hasattr(enemy, 'reward') and enemy.reward > 0:
+                          self.game.player_money += enemy.reward
+                          print(f"Bounty Collected! +{enemy.reward} gold for {enemy.type_key}.")
+                          # Remove flag after awarding
+                          delattr(enemy, '_killed_by_bounty')
+                # Remove the enemy if it hasn't been removed by kill() - should not be needed if kill() works
+                # elif enemy in self.game.enemies: # Check if still in group
+                #      self.game.enemies.remove(enemy)
 
         # Check Wave End
         if self.game.wave_manager.is_wave_active() and self.game.wave_manager.is_wave_complete() and len(self.game.enemies) == 0:
-            print(f"Wave {self.game.wave_manager.current_wave_number} cleared!")
+            current_wave_num = self.game.wave_manager.current_wave_number
+            print(f"Wave {current_wave_num} cleared!")
+            
+            # Grant wave completion reward
+            wave_reward = self.game.wave_manager.get_current_wave_reward()
+            if wave_reward > 0:
+                 self.game.player_money += wave_reward
+                 print(f"Wave Reward: +{wave_reward} gold!")
+            
             self.game.wave_manager.end_wave()
 
     def _handle_collisions(self):

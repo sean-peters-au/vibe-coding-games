@@ -38,7 +38,8 @@ class DataManager:
     def _define_class_maps(self):
         """Defines mappings from data keys (strings) to actual classes."""
         # Import entity classes here, just before they are needed
-        from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, IceTower, IceProjectile
+        from entities import (Enemy, Tower, Projectile, CannonTower, CannonProjectile,
+                           IceTower, IceProjectile, GoldMine, BountyHunterTower, CoinShotProjectile)
 
         self.enemy_classes = {
             "Goblin": Enemy,
@@ -48,13 +49,16 @@ class DataManager:
         self.tower_classes = {
             "Basic": Tower,
             "Cannon": CannonTower,
-            "Ice": IceTower
+            "Ice": IceTower,
+            "GoldMine": GoldMine,
+            "BountyHunter": BountyHunterTower
             # Add new tower classes here
         }
         self.projectile_classes = {
             "Basic": Projectile,
             "Cannon": CannonProjectile,
-            "Ice": IceProjectile
+            "Ice": IceProjectile,
+            "CoinShot": CoinShotProjectile
             # Add new projectile classes here
         }
         print("DataManager: Class maps defined.")

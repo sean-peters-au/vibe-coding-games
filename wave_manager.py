@@ -112,4 +112,19 @@ class WaveManager:
          self.wave_active = False
          self.wave_data = None
          self.spawn_groups = []
-         print(f"Wave {self.current_wave_number} ended.") 
+         print(f"Wave {self.current_wave_number} ended.")
+
+    def get_wave_definitions(self):
+        return self.waves
+
+    def get_current_wave_reward(self):
+        """Returns the reward amount for the currently completed wave."""
+        if self.wave_data:
+            return self.wave_data.get("reward", 0)
+        # Find the wave definition for the current number if wave_data is already cleared
+        for wave_def in self.waves:
+             if wave_def.get("wave") == self.current_wave_number:
+                  return wave_def.get("reward", 0)
+        return 0 # Default if not found
+
+# Remove old global functions and variable 

@@ -1,18 +1,21 @@
 [
     {
         "wave": 1,
+        "reward": 50,
         "enemies": [
             {"type": "Goblin", "count": 10, "spawn_delay": 1.5} 
         ]
     },
     {
         "wave": 2,
+        "reward": 75,
         "enemies": [
             {"type": "Goblin", "count": 15, "spawn_delay": 1.2}
         ]
     },
     {
         "wave": 3,
+        "reward": 100,
         "enemies": [
             {"type": "Goblin", "count": 10, "spawn_delay": 1.0},
             {"type": "Ogre",   "count": 2,  "spawn_delay": 3.0} 
@@ -20,6 +23,7 @@
     },
     {
         "wave": 4,
+        "reward": 125,
         "enemies": [
             {"type": "Goblin", "count": 5,  "spawn_delay": 0.8},
             {"type": "Ogre",   "count": 4,  "spawn_delay": 2.5},

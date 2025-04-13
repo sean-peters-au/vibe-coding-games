@@ -2,7 +2,7 @@ import pygame
 import sys
 import config
 from map import GameMap
-from entities import Enemy, Tower, Projectile, CannonTower, CannonProjectile, BaseProjectile, Effect, IceProjectile
+from entities import Projectile, CannonProjectile, IceProjectile, CoinShotProjectile
 import math
 from ui import UIPanel
 import json
@@ -65,6 +65,14 @@ class Game:
         self.running = True
         self.state_stack = [] # Use a stack for states (e.g., pause menu)
         self._init_starting_state()
+
+        # --- Game State Variables ---
+        self.projectile_class_map = {
+            "Basic": Projectile,
+            "Cannon": CannonProjectile,
+            "Ice": IceProjectile,
+            "CoinShot": CoinShotProjectile
+        }
 
     def _init_starting_state(self):
         """Sets up the initial game state."""

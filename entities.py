@@ -42,28 +42,54 @@ class BaseTower(pygame.sprite.Sprite):
         self.target = None
         self.type_key = type_key # Store the type key (e.g., "Basic", "Cannon")
 
-        # Load data for this specific tower type using passed data_manager
+        # === Load Data and Set Attributes FIRST ===
         data = self.data_manager.get_tower_data(type_key)
         if not data:
             print(f"Error: No data found for tower type '{type_key}'")
-            # Handle error appropriately - maybe default values or raise exception
             return
 
-        # Set attributes from data
         self.cost = data.get("cost", 9999)
-        self.range = data.get("range", 100)
-        self.fire_rate = data.get("fire_rate", 2.0)
-        self.projectile_type = data.get("projectile_type", "Basic") # Projectile key
-
-        # Load image using data
+        self.range = data.get("range", 0)
+        self.fire_rate = data.get("fire_rate", 0)
+        self.projectile_type = data.get("projectile_type", "Basic")
+        self.click_gold = data.get("click_gold", 0)
+        # Load paths and ratios needed later
         image_path = data.get("image", "default_tower.png")
-        # Use scale_ratio from data, fallback_size_ratio only for initial surface
         scale_ratio = data.get("scale_ratio", 0.9)
         fallback_size_ratio = data.get("fallback_size_ratio", 0.8)
         fallback_color_name = data.get("fallback_color", "GREY")
+        # === End Data Loading ===
+
+        # --- Click Animation (Now scale_ratio is available) ---
+        self.click_animation_frames = []
+        self.click_animation_speed = 150
+        self.is_animating = False
+        self.current_animation_frame_index = 0
+        self.last_animation_update = 0
+
+        anim_data = data.get("click_animation")
+        if anim_data and isinstance(anim_data.get("frames"), list):
+            self.click_animation_speed = anim_data.get("speed", 150)
+            # Calculate target size using the loaded scale_ratio
+            target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
+            for frame_filename in anim_data["frames"]:
+                frame_surface, _ = asset_manager.load_image(frame_filename)
+                if frame_surface:
+                    try:
+                        scaled_frame = pygame.transform.smoothscale(frame_surface.copy(), target_size)
+                        self.click_animation_frames.append(scaled_frame)
+                    except ValueError as e:
+                        print(f"Error scaling click anim frame {frame_filename}: {e}")
+            if not self.click_animation_frames:
+                 print(f"Warning: Failed loading click anim frames for {type_key}")
+
+        # --- Load Idle Image and Position --- 
         fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
         fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
+        # Pass asset_manager, paths, and fallback info to loading helper
         self.load_and_position_image(asset_manager, image_path, fallback_size, fallback_color)
+        # Store the base image AFTER loading/scaling
+        self.idle_image = self.image
 
     def find_target(self, enemies):
         self.target = None
@@ -75,16 +101,31 @@ class BaseTower(pygame.sprite.Sprite):
                  self.target = enemy
 
     def update(self, dt, enemies, projectiles):
-        current_time = pygame.time.get_ticks() / 1000.0
+        current_time_ms = pygame.time.get_ticks()
 
-        # Find target
-        if not self.target or not self.target.alive() or math.hypot(self.x - self.target.rect.centerx, self.y - self.target.rect.centery) > self.range:
-            self.find_target(enemies)
-
-        # Shoot
-        if self.target and (current_time - self.last_shot_time >= self.fire_rate): # Assumes self.fire_rate set by subclass
-            self.shoot(projectiles)
-            self.last_shot_time = current_time
+        # Handle Click Animation
+        if self.is_animating:
+            if current_time_ms - self.last_animation_update > self.click_animation_speed:
+                self.last_animation_update = current_time_ms
+                self.current_animation_frame_index += 1
+                if self.current_animation_frame_index >= len(self.click_animation_frames):
+                    # Animation finished
+                    self.is_animating = False
+                    self.image = self.idle_image # Revert to idle image
+                else:
+                    # Continue animation
+                    self.image = self.click_animation_frames[self.current_animation_frame_index]
+        
+        # Original update logic (Shooting)
+        if self.range > 0 and self.fire_rate > 0: # Only shoot if range/rate are valid
+            current_time_sec = current_time_ms / 1000.0
+            # Find target
+            if not self.target or not self.target.alive() or math.hypot(self.x - self.target.rect.centerx, self.y - self.target.rect.centery) > self.range:
+                self.find_target(enemies)
+            # Shoot
+            if self.target and (current_time_sec - self.last_shot_time >= self.fire_rate):
+                self.shoot(projectiles)
+                self.last_shot_time = current_time_sec
 
     # Abstract method - subclasses must implement
     def shoot(self, projectiles):
@@ -102,7 +143,6 @@ class BaseTower(pygame.sprite.Sprite):
 
     def load_and_position_image(self, asset_manager, image_path, fallback_size, fallback_color):
         self.image, self.rect = asset_manager.load_image(image_path)
-        # Use self.data_manager
         data = self.data_manager.get_tower_data(self.type_key)
         scale_ratio = data.get("scale_ratio", 0.9) if data else 0.9
         target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
@@ -116,10 +156,24 @@ class BaseTower(pygame.sprite.Sprite):
             self.rect = self.image.get_rect()
         else:
             # Scale the loaded image
-            self.image = pygame.transform.smoothscale(self.image, target_size)
-            self.rect = self.image.get_rect() # Get new rect after scaling
+            loaded_image = self.image # Keep original before scaling
+            try:
+                self.image = pygame.transform.smoothscale(loaded_image.copy(), target_size)
+            except ValueError as e:
+                 print(f"Error scaling tower image {image_path}: {e}")
+                 self.image = loaded_image # Use unscaled
+            self.rect = self.image.get_rect()
 
         self.rect.center = (self.x, self.y)
+        # Now self.image holds the final scaled image/fallback
+
+    def trigger_click_animation(self):
+        """Starts the click animation if frames exist."""
+        if self.click_animation_frames:
+            self.is_animating = True
+            self.current_animation_frame_index = 0
+            self.last_animation_update = pygame.time.get_ticks()
+            self.image = self.click_animation_frames[0] # Show first frame immediately
 
 
 class BaseProjectile(pygame.sprite.Sprite):
@@ -282,11 +336,12 @@ class Enemy(pygame.sprite.Sprite):
         else:
             # Set attributes from data
             self.speed = data.get("speed", 50)
-            self.base_speed = self.speed # Store original speed
+            self.base_speed = self.speed
             self.health = data.get("health", 50)
-            self.max_health = self.health # Base max health on loaded health
+            self.max_health = self.health
+            # Keep reward attribute, might be used by specific projectiles
             self.reward = data.get("reward", 5)
-            image_path = data.get("image") # Might be None if animation exists
+            image_path = data.get("image")
             animation_data = data.get("animation") # Get animation data
             scale_ratio = data.get("scale_ratio", 0.6) # Load scale ratio
             fallback_color_name = data.get("fallback_color", "RED")
@@ -604,3 +659,66 @@ class Effect(pygame.sprite.Sprite):
         # Remove the effect after its duration expires
         if pygame.time.get_ticks() - self.spawn_time > self.duration:
             self.kill() 
+
+class GoldMine(BaseTower):
+    def __init__(self, grid_x, grid_y, asset_manager, data_manager):
+        super().__init__(grid_x, grid_y, type_key="GoldMine", asset_manager=asset_manager, data_manager=data_manager)
+
+    def shoot(self, projectiles):
+        # Gold mine doesn't shoot
+        pass 
+
+    def on_click(self, game_state):
+        """Called when the gold mine is clicked."""
+        if self.click_gold > 0:
+            game_state.game.player_money += self.click_gold
+            print(f"Collected {self.click_gold} gold!")
+            # Potentially add a sound effect here
+            # Play click animation
+            self.trigger_click_animation()
+            return True # Indicate click was handled
+        return False 
+
+# --- Bounty Hunter Tower Class ---
+class BountyHunterTower(BaseTower):
+    def __init__(self, grid_x, grid_y, asset_manager, data_manager):
+        super().__init__(grid_x, grid_y, type_key="BountyHunter", asset_manager=asset_manager, data_manager=data_manager)
+
+    def shoot(self, projectiles):
+        if self.target:
+            projectile = CoinShotProjectile(self.rect.center, self.target, type_key="CoinShot", asset_manager=self.asset_manager, data_manager=self.data_manager)
+            projectiles.add(projectile)
+            tower_data = self.data_manager.get_tower_data(self.type_key)
+            if tower_data and tower_data.get("shoot_sound"):
+                 sound = self.asset_manager.load_sound(tower_data["shoot_sound"])
+                 self.asset_manager.play_sound(sound)
+
+
+# --- Coin Shot Projectile Class ---
+class CoinShotProjectile(BaseProjectile):
+    def __init__(self, start_pos, target_enemy, type_key="CoinShot", asset_manager=None, data_manager=None):
+        super().__init__(start_pos, target_enemy, type_key, asset_manager, data_manager)
+        proj_data = self.data_manager.get_projectile_data(type_key)
+        self.awards_bounty = proj_data.get("awards_bounty_on_kill", False)
+
+    def on_hit(self, target_enemy, enemies_group, effects_group):
+        # Play hit sound
+        proj_data = self.data_manager.get_projectile_data(self.type_key)
+        if proj_data and proj_data.get("hit_sound"):
+             sound = self.asset_manager.load_sound(proj_data["hit_sound"])
+             self.asset_manager.play_sound(sound)
+
+        bounty_awarded = False
+        if target_enemy.alive():
+            target_enemy.take_damage(self.damage)
+            # Check if this projectile killed the enemy AND awards bounty
+            if not target_enemy.alive() and self.awards_bounty:
+                 # Award the enemy's base reward value
+                 # Need access to game state / player money... this is tricky.
+                 # We'll have to handle this reward in the main loop check for now.
+                 # Mark the enemy as killed by bounty shot?
+                 if hasattr(target_enemy, 'reward') and target_enemy.reward > 0:
+                      target_enemy._killed_by_bounty = True # Add flag
+                      print(f"Enemy killed by bounty shot! Reward pending.") # Debug
+
+        return True # Destroy projectile 

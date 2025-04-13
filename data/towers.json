@@ -33,9 +33,40 @@
         "range": 130,
         "fire_rate": 1.2,
         "projectile_type": "Ice",
-        "scale_ratio": 1.0,
+        "scale_ratio": 1.5,
         "fallback_size_ratio": 0.8,
         "fallback_color": "CYAN",
         "shoot_sound": "shoot_snow.mp3"
+    },
+    "GoldMine": {
+        "name": "Gold Mine",
+        "image": "towers/gold_mine.png",
+        "icon": "towers/gold_mine.png",
+        "cost": 150,
+        "range": 0,
+        "fire_rate": 0,
+        "projectile_type": null,
+        "click_gold": 1,
+        "scale_ratio": 1.6,
+        "fallback_size_ratio": 0.9,
+        "fallback_color": "GOLD",
+        "shoot_sound": null,
+        "click_animation": {
+             "frames": ["towers/gold_mine_click_1.png", "towers/gold_mine_click_2.png"],
+             "speed": 100
+        }
+    },
+    "BountyHunter": {
+        "name": "Bounty Hunter",
+        "image": "towers/bounty_hunter.png",
+        "icon": "towers/bounty_hunter.png",
+        "cost": 120,
+        "range": 160,
+        "fire_rate": 1.5,
+        "projectile_type": "CoinShot",
+        "scale_ratio": 1.0,
+        "fallback_size_ratio": 0.8,
+        "fallback_color": "GOLD",
+        "shoot_sound": "shoot_coin.wav"
     }
 } 
