@@ -91,6 +91,10 @@ class BaseTower(pygame.sprite.Sprite):
         # Store the base image AFTER loading/scaling
         self.idle_image = self.image
 
+        # Movement Cooldown
+        # Initialize so tower is movable immediately after placement
+        self.last_move_time = pygame.time.get_ticks() - (config.TOWER_MOVE_COOLDOWN * 1000)
+
     def find_target(self, enemies):
         self.target = None
         min_dist = self.range # Assumes self.range is set by subclass
@@ -174,6 +178,42 @@ class BaseTower(pygame.sprite.Sprite):
             self.current_animation_frame_index = 0
             self.last_animation_update = pygame.time.get_ticks()
             self.image = self.click_animation_frames[0] # Show first frame immediately
+
+    def can_move(self):
+        """Checks if the move cooldown has expired."""
+        return pygame.time.get_ticks() - self.last_move_time >= config.TOWER_MOVE_COOLDOWN * 1000
+
+    def reset_move_cooldown(self):
+        """Resets the move cooldown timer."""
+        self.last_move_time = pygame.time.get_ticks()
+
+    def draw_cooldown_bar(self, surface):
+        """Draws the movement cooldown indicator below the tower."""
+        if not self.can_move():
+            cooldown_total = config.TOWER_MOVE_COOLDOWN * 1000
+            time_elapsed = pygame.time.get_ticks() - self.last_move_time
+            progress_pct = min(1.0, time_elapsed / cooldown_total)
+            
+            bar_width = self.rect.width * 0.8 # Slightly smaller than tower width
+            bar_height = 4
+            bar_x = self.rect.centerx - bar_width / 2
+            bar_y = self.rect.bottom + 3 # Position below tower
+            
+            # Background (e.g., dark grey)
+            bg_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+            pygame.draw.rect(surface, (60, 60, 60), bg_rect)
+            
+            # Progress bar (e.g., light blue)
+            progress_width = int(bar_width * progress_pct)
+            progress_rect = pygame.Rect(bar_x, bar_y, progress_width, bar_height)
+            pygame.draw.rect(surface, (100, 150, 255), progress_rect)
+
+    # Add a base draw method to be called by Game._draw
+    def draw(self, surface):
+        # If animating, self.image is updated by the update method
+        current_image = self.image
+        surface.blit(current_image, self.rect)
+        self.draw_cooldown_bar(surface)
 
 
 class BaseProjectile(pygame.sprite.Sprite):
@@ -259,7 +299,7 @@ class BaseProjectile(pygame.sprite.Sprite):
             effects_group: The sprite group for visual effects.
 
         Returns:
-            bool: True if the projectile should be destroyed after the hit, False otherwise.
+            tuple[bool, int]: (True if projectile should be destroyed, Gold reward amount)
         """
         raise NotImplementedError("Projectile subclasses must implement on_hit")
 
@@ -304,8 +344,8 @@ class Projectile(BaseProjectile):
         if target_enemy.alive(): # Check if target still alive before damaging
             target_enemy.take_damage(self.damage)
 
-        # Basic projectile is always destroyed on hit
-        return True
+        # Basic projectile is always destroyed, no reward from projectile
+        return True, 0
 
 
 # --- Enemy Class ---
@@ -334,19 +374,22 @@ class Enemy(pygame.sprite.Sprite):
             scale_ratio = 0.6
             fallback_color_name = "RED"
             self.is_flying = False # Load flying flag
+            self.can_dig = False # Load can_dig flag
         else:
             # Set attributes from data
             self.speed = data.get("speed", 50)
             self.base_speed = self.speed
             self.health = data.get("health", 50)
             self.max_health = self.health
-            # Keep reward attribute, might be used by specific projectiles
             self.reward = data.get("reward", 5)
+            # Load ratios and paths needed for image/anim loading AND fallback
             image_path = data.get("image")
-            animation_data = data.get("animation") # Get animation data
-            scale_ratio = data.get("scale_ratio", 0.6) # Load scale ratio
+            animation_data = data.get("animation")
+            scale_ratio = data.get("scale_ratio", 0.6)
+            fallback_size_ratio = data.get("fallback_size_ratio", 0.6)
             fallback_color_name = data.get("fallback_color", "RED")
-            self.is_flying = data.get("is_flying", False) # Load flying flag
+            self.is_flying = data.get("is_flying", False)
+            self.can_dig = data.get("can_dig", False)
 
         # List to hold active modifiers
         self.modifiers = []
@@ -375,15 +418,16 @@ class Enemy(pygame.sprite.Sprite):
 
         elif image_path:
             # Load static image
-            # Use scale_ratio from data for target size
             target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
-            self.image = self.asset_manager.load_image(image_path)
-            if self.image is None:
-                 # Need to pass fallback_size_ratio as well
+            # Unpack the tuple
+            image_surface, _ = self.asset_manager.load_image(image_path)
+            # Check the surface
+            if image_surface is None:
                  self._create_fallback_image(self.asset_manager, fallback_color_name, fallback_size_ratio, scale_ratio)
             else:
-                 # Scale static image
-                 self.image = pygame.transform.smoothscale(self.image, target_size)
+                 # Assign the surface, then scale
+                 self.image = image_surface
+                 self.image = pygame.transform.smoothscale(self.image.copy(), target_size) # Scale the surface
                  self.rect = self.image.get_rect() # Get new rect after scaling
 
         else:
@@ -585,8 +629,8 @@ class CannonProjectile(BaseProjectile):
             effect = Effect(impact_pos, splash_image_path, 200, self.asset_manager, self.data_manager, target_size=effect_size)
             effects_group.add(effect)
 
-        # Cannon projectile is always destroyed on hit
-        return True
+        # Cannon projectile is always destroyed, return reward 0
+        return True, 0
 
 
 # --- Ice Tower Class ---
@@ -637,8 +681,8 @@ class IceProjectile(BaseProjectile):
                         slow_mod = SlowModifier(self.slow_factor, self.slow_duration)
                         enemy.add_modifier(slow_mod)
 
-        # Ice projectile is always destroyed on hit
-        return True
+        # Ice projectile is always destroyed, no reward from projectile
+        return True, 0
 
 
 # --- Visual Effect Class ---
@@ -725,17 +769,17 @@ class CoinShotProjectile(BaseProjectile):
              sound = self.asset_manager.load_sound(proj_data["hit_sound"])
              self.asset_manager.play_sound(sound)
 
-        bounty_awarded = False
+        gold_reward = 0
+        killed_enemy = False
         if target_enemy.alive():
             target_enemy.take_damage(self.damage)
-            # Check if this projectile killed the enemy AND awards bounty
-            if not target_enemy.alive() and self.awards_bounty:
-                 # Award the enemy's base reward value
-                 # Need access to game state / player money... this is tricky.
-                 # We'll have to handle this reward in the main loop check for now.
-                 # Mark the enemy as killed by bounty shot?
-                 if hasattr(target_enemy, 'reward') and target_enemy.reward > 0:
-                      target_enemy._killed_by_bounty = True # Add flag
-                      print(f"Enemy killed by bounty shot! Reward pending.") # Debug
+            if not target_enemy.alive(): # Check if this hit killed it
+                killed_enemy = True
+                if self.awards_bounty and hasattr(target_enemy, 'reward'):
+                    gold_reward = target_enemy.reward
+                    # Don't set flags, just return the reward amount
+                    # target_enemy._killed_by_bounty = True # Removed
+                    print(f"Bounty shot killed! Returning reward: {gold_reward}") # Debug
 
-        return True # Destroy projectile 
+        # Destroy projectile, return reward amount
+        return True, gold_reward 

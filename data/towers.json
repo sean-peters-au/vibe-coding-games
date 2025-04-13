@@ -62,9 +62,9 @@
         "icon": "towers/bounty_hunter.png",
         "cost": 120,
         "range": 160,
-        "fire_rate": 1.5,
+        "fire_rate": 7.0,
         "projectile_type": "CoinShot",
-        "scale_ratio": 1.0,
+        "scale_ratio": 1.4,
         "fallback_size_ratio": 0.8,
         "fallback_color": "GOLD",
         "shoot_sound": "shoot_coin.wav"

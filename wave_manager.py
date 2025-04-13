@@ -16,7 +16,8 @@ class WaveManager:
         self.waves.sort(key=lambda w: w.get('wave', 0))
         print(f"WaveManager initialized with {len(self.waves)} waves.")
 
-        self.current_wave_number = 0
+        # Initialize wave number based on debug setting (or 0)
+        self.current_wave_number = config.DEBUG_STARTING_WAVE - 1
         self.wave_active = False
         self.wave_data = None # Data for the currently active wave
         self.spawn_groups = [] # List of groups remaining to spawn in current wave
@@ -32,6 +33,7 @@ class WaveManager:
 
     def start_next_wave(self):
         """Starts the next available wave."""
+        # Look for the wave number *after* the current one
         next_wave_num = self.current_wave_number + 1
         wave_found = False
         for wave_def in self.waves:

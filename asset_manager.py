@@ -82,6 +82,7 @@ class AssetManager:
         # Preload general UI sounds from config
         if hasattr(config, 'TOWER_PLACE_SOUND'): self.load_sound(config.TOWER_PLACE_SOUND)
         if hasattr(config, 'ERROR_SOUND'): self.load_sound(config.ERROR_SOUND)
+        if hasattr(config, 'SELL_SOUND'): self.load_sound(config.SELL_SOUND)
         # Could add preloading for other assets (e.g., tile images) here if desired
         print("AssetManager preloading complete.")
 

@@ -64,11 +64,19 @@ SOUND_DIR = "assets/sounds"
 # General UI/Game Sounds
 TOWER_PLACE_SOUND = "place_tower.mp3"
 ERROR_SOUND = "error.mp3"
+SELL_SOUND = "sell.wav" # Sound for selling a tower
 
 # Player stats
-STARTING_MONEY = 100
+STARTING_MONEY = 700
 STARTING_HEALTH = 20
+
+# Gameplay Settings
+SELL_REFUND_RATIO = 0.75 # 75% refund
+TOWER_MOVE_COOLDOWN = 10.0 # Seconds before a tower can be moved again
 
 # Enemy stats
 ENEMY_SPAWN_RATE = 0.75 # Seconds between spawns
 INTER_WAVE_DELAY = 5.0 # Seconds between end of wave and start of next
+
+# Debugging
+DEBUG_STARTING_WAVE = 8 # Set to higher number to start on a later wave

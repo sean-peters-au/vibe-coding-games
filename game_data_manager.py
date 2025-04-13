@@ -45,6 +45,10 @@ class DataManager:
             "Goblin": Enemy,
             "Ogre": Enemy,
             "Dragon": Enemy,
+            "Runner": Enemy,
+            "Brute": Enemy,
+            "Digger": Enemy # Still uses base Enemy class for now
+            # Add new enemy classes here (e.g., "Flyer": FlyingEnemy)
         }
         self.tower_classes = {
             "Basic": Tower,

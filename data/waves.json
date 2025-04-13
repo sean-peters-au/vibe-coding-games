@@ -55,5 +55,49 @@
             {"type": "Goblin", "count": 15, "spawn_delay": 0.7},
             {"type": "Dragon", "count": 1,  "spawn_delay": 4.0}
         ]
+    },
+    {
+        "wave": 8,
+        "reward": 225,
+        "enemies": [
+            {"type": "Runner", "count": 20, "spawn_delay": 0.5},
+            {"type": "Ogre",   "count": 5,  "spawn_delay": 1.5}
+        ]
+    },
+    {
+        "wave": 9,
+        "reward": 250,
+        "enemies": [
+            {"type": "Brute",  "count": 3,  "spawn_delay": 3.0},
+            {"type": "Goblin", "count": 25, "spawn_delay": 0.4}
+        ]
+    },
+    {
+        "wave": 10,
+        "reward": 300,
+        "enemies": [
+            {"type": "Digger", "count": 5,  "spawn_delay": 2.0},
+            {"type": "Ogre",   "count": 5,  "spawn_delay": 1.5},
+            {"type": "Runner", "count": 15, "spawn_delay": 0.6}
+        ]
+    },
+    {
+        "wave": 11,
+        "reward": 350,
+        "enemies": [
+            {"type": "Brute",  "count": 5,  "spawn_delay": 2.5},
+            {"type": "Dragon", "count": 1,  "spawn_delay": 4.0},
+            {"type": "Runner", "count": 20, "spawn_delay": 0.4}
+        ]
+    },
+    {
+        "wave": 12,
+        "reward": 400,
+        "enemies": [
+            {"type": "Digger", "count": 8,  "spawn_delay": 1.5},
+            {"type": "Ogre",   "count": 6,  "spawn_delay": 1.8},
+            {"type": "Brute",  "count": 4,  "spawn_delay": 2.5},
+            {"type": "Dragon", "count": 2,  "spawn_delay": 3.5}
+        ]
     }
 ] 

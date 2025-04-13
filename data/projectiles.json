@@ -11,7 +11,7 @@
     "Cannon": {
         "image": "projectiles/cannon.png",
         "speed": 200,
-        "damage": 40,
+        "damage": 30,
         "splash_radius": 180,
         "splash_image": "projectiles/cannon_splash.png",
         "scale_ratio": 0.6,
@@ -34,7 +34,7 @@
     "CoinShot": {
         "image": "projectiles/coin_shot.png",
         "speed": 350,
-        "damage": 5,
+        "damage": 100,
         "awards_bounty_on_kill": true,
         "scale_ratio": 0.3,
         "fallback_size_ratio": 0.2,
