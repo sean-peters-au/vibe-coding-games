@@ -1,6 +1,6 @@
 # Tower Defense
 
-A tower defense game built with pygame
+A little tower defense game I made for an evenings amusement :)
 
 ## Setup
 
