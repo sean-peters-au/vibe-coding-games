@@ -1,28 +1,44 @@
 import pygame
 import config
-from entities import load_image # Import the loader
+# from entities import load_image # Removed
 
 class GameMap:
-    def __init__(self, grid_width, grid_height):
+    # Accept asset_manager
+    def __init__(self, grid_width, grid_height, asset_manager):
         self.grid_width = grid_width
         self.grid_height = grid_height
         self.tile_size = config.TILE_SIZE
-        # 0 = path, 1 = buildable, 2 = tower placed
-        self.grid = [[1] * grid_width for _ in range(grid_height)] # Default all buildable
+        self.asset_manager = asset_manager
 
-        # Load tile images (with simple fallback)
-        self.grass_tile, _ = load_image(config.GRASS_TILE)
-        self.dirt_tile, _ = load_image(config.DIRT_TILE)
+        # Load tile images using asset_manager, unpack the tuple
+        grass_image, _ = asset_manager.load_image(config.GRASS_TILE)
+        dirt_image, _ = asset_manager.load_image(config.DIRT_TILE)
+        
+        # Work with the loaded images (surfaces)
+        self.grass_tile = grass_image 
+        self.dirt_tile = dirt_image
+
         if not self.grass_tile:
+            print("Warning: Grass tile failed to load, using fallback color.")
             self.grass_tile = pygame.Surface([self.tile_size, self.tile_size])
-            self.grass_tile.fill(config.DARK_GREEN)
+            self.grass_tile.fill(config.COLOR_MAP.get("DARK_GREEN", (0,100,0))) # Use COLOR_MAP
         if not self.dirt_tile:
+            print("Warning: Dirt tile failed to load, using fallback color.") # Added warning
             self.dirt_tile = pygame.Surface([self.tile_size, self.tile_size])
-            self.dirt_tile.fill(config.BROWN)
+            self.dirt_tile.fill(config.COLOR_MAP.get("BROWN", (165,42,42))) # Use COLOR_MAP
 
         # Ensure tiles are scaled to TILE_SIZE if needed
-        self.grass_tile = pygame.transform.scale(self.grass_tile, (self.tile_size, self.tile_size))
-        self.dirt_tile = pygame.transform.scale(self.dirt_tile, (self.tile_size, self.tile_size))
+        # Scale the surfaces directly
+        try:
+            self.grass_tile = pygame.transform.smoothscale(self.grass_tile, (self.tile_size, self.tile_size))
+            self.dirt_tile = pygame.transform.smoothscale(self.dirt_tile, (self.tile_size, self.tile_size))
+        except ValueError as e:
+            print(f"Error scaling map tiles: {e}")
+            # Handle error - maybe revert to unscaled or basic fallback?
+            # For now, the fallback surfaces above are already the right size.
+
+        # 0 = path, 1 = buildable, 2 = tower placed
+        self.grid = [[1] * grid_width for _ in range(grid_height)] # Default all buildable
 
         # Define a simple path (list of grid coordinates) - ADJUSTED FOR 16x12 GRID
         self.path_coords = [

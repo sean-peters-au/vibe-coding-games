@@ -6,8 +6,15 @@ import game_data_manager
 from entities import Enemy # Assuming Enemy class is sufficient for now
 
 class WaveManager:
-    def __init__(self, waves_filepath="data/waves.json", enemy_class_map=None):
-        self.waves = self._load_waves(waves_filepath)
+    def __init__(self, data_manager, asset_manager, waves_filepath="data/waves.json"):
+        self.data_manager = data_manager # Store DataManager
+        self.asset_manager = asset_manager
+        # Load waves using DataManager
+        self.waves = data_manager.get_wave_definitions()
+        # Sort waves just in case (DataManager might already do this)
+        self.waves.sort(key=lambda w: w.get('wave', 0))
+        print(f"WaveManager initialized with {len(self.waves)} waves.")
+
         self.current_wave_number = 0
         self.wave_active = False
         self.wave_data = None # Data for the currently active wave
@@ -17,23 +24,8 @@ class WaveManager:
         self.last_spawn_time = 0
         self.total_enemies_in_wave = 0
         self.enemies_spawned_this_wave = 0
-        self.enemy_class_map = enemy_class_map if enemy_class_map else {"Goblin": Enemy, "Ogre": Enemy}
-
-    def _load_waves(self, filepath):
-        """Loads wave definitions from a JSON file."""
-        try:
-            with open(filepath, 'r') as f:
-                waves = json.load(f)
-                # Sort waves just in case they aren't ordered in the file
-                waves.sort(key=lambda w: w.get('wave', 0))
-                print(f"Loaded {len(waves)} waves from {filepath}")
-                return waves
-        except FileNotFoundError:
-            print(f"Error: Wave data file not found: {filepath}")
-            return []
-        except json.JSONDecodeError:
-            print(f"Error: Could not decode wave data file: {filepath}")
-            return []
+        # Get enemy class map from data_manager
+        self.enemy_class_map = self.data_manager.enemy_classes
 
     def start_next_wave(self):
         """Starts the next available wave."""
@@ -87,10 +79,10 @@ class WaveManager:
         # Check if enough time passed to spawn next enemy in this group
         if current_time - self.last_spawn_time >= spawn_delay:
             if self.enemies_spawned_in_group < count:
-                # Spawn the enemy
+                # Spawning logic uses self.enemy_class_map which is now set correctly
                 EnemyClass = self.enemy_class_map.get(enemy_type)
                 if EnemyClass:
-                    enemy = EnemyClass(game_map.get_path(), type_key=enemy_type)
+                    enemy = EnemyClass(game_map.get_path(), type_key=enemy_type, asset_manager=self.asset_manager, data_manager=self.data_manager)
                     enemies_group.add(enemy)
                     self.enemies_spawned_in_group += 1
                     self.enemies_spawned_this_wave += 1

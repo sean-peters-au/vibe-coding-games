@@ -1,18 +1,19 @@
 import pygame
 import config
-from entities import Tower, CannonTower, IceTower, load_image # Need entity classes for info
+from entities import Tower, CannonTower, IceTower
 
 class Button:
     """Represents a clickable button in the UI panel."""
     ICON_SIZE = 40 # Reduced from 48
     PADDING = 8 # Reduced from 10
 
-    def __init__(self, y, tower_key, icon_path, name, cost, fallback_color_name):
+    def __init__(self, y, tower_key, icon_path, name, cost, fallback_color_name, asset_manager):
         self.tower_key = tower_key # Store the key
         self.name = name
         self.cost = cost
         self.icon_path = icon_path
         self.fallback_color_name = fallback_color_name # Store the name
+        self.asset_manager = asset_manager # Store it
 
         # Button area rectangle
         self.width = config.UI_PANEL_WIDTH - 2 * self.PADDING
@@ -22,19 +23,28 @@ class Button:
                                self.width,
                                self.height)
 
-        # Load icon (with fallback color)
-        self.icon_image, _ = load_image(icon_path)
-        if self.icon_image is None:
-             # Fallback: Create colored square icon
-             self.icon_image = pygame.Surface([self.ICON_SIZE, self.ICON_SIZE])
-             # Use the passed fallback color name and COLOR_MAP
-             fallback_color = config.COLOR_MAP.get(self.fallback_color_name, config.GREY)
-             self.icon_image.fill(fallback_color)
+        # Load icon using asset_manager, unpack the tuple
+        icon_surface, icon_rect_from_load = asset_manager.load_image(icon_path)
+
+        # Use the loaded surface (or create fallback)
+        if icon_surface is None:
+            # Fallback: Create colored square icon
+            self.icon_image = pygame.Surface([self.ICON_SIZE, self.ICON_SIZE])
+            fallback_color = config.COLOR_MAP.get(self.fallback_color_name, config.GREY)
+            self.icon_image.fill(fallback_color)
+            # Scale fallback icon (already ICON_SIZE, maybe redundant but safe)
+            self.icon_image = pygame.transform.smoothscale(self.icon_image, (self.ICON_SIZE, self.ICON_SIZE))
         else:
-             # Scale loaded icon if needed
-             self.icon_image = pygame.transform.scale(self.icon_image, (self.ICON_SIZE, self.ICON_SIZE))
+            # Scale loaded icon if needed
+            try:
+                self.icon_image = pygame.transform.smoothscale(icon_surface.copy(), (self.ICON_SIZE, self.ICON_SIZE))
+            except ValueError as e:
+                 print(f"Error scaling button icon {icon_path}: {e}")
+                 # Fallback to unscaled if scaling fails?
+                 self.icon_image = icon_surface # Use unscaled original
 
         # Position icon within the button rect (slightly higher)
+        # Get rect from the final self.icon_image
         self.icon_rect = self.icon_image.get_rect(center=(self.rect.centerx, self.rect.top + self.ICON_SIZE // 2 + self.PADDING))
 
     def draw(self, surface, font, selected=False):
@@ -64,35 +74,36 @@ class Button:
         return self.rect.collidepoint(pos)
 
 class UIPanel:
-    """Manages the UI panel on the right side."""
-    def __init__(self, tower_data, start_y, font):
+    """Manages all UI elements, including status bar, buttons, prompts."""
+    def __init__(self, data_manager, start_y, font, asset_manager):
         self.rect = pygame.Rect(config.GAME_AREA_WIDTH, 0,
                                config.UI_PANEL_WIDTH, config.SCREEN_HEIGHT)
         self.font = font
         self.buttons = []
         self.selected_tower_key = None
-        self.tower_class_map = { # Map name from data to actual class
-            "Basic": Tower,
-            "Cannon": CannonTower,
-            "Ice": IceTower # Add Ice Tower mapping
-            # Add future tower classes here
-        }
+        self.data_manager = data_manager
+        self.asset_manager = asset_manager
+
+        # --- Load Status Icons ---
+        self.status_font = pygame.font.SysFont(None, 28) # Font for status bar
+        self.prompt_font = pygame.font.SysFont(None, 24) # Font for prompts
+        icon_size = (24, 24)
+        self.heart_icon = self._load_scaled_icon(config.HEART_ICON, icon_size)
+        self.coin_icon = self._load_scaled_icon(config.COIN_ICON, icon_size)
+        self.next_wave_icon = self._load_scaled_icon(config.NEXT_WAVE_ICON, icon_size)
 
         # --- Define Tower Buttons from Data ---
         button_y = start_y
-        # Iterate through the loaded tower_data dictionary
+        # Get tower data using DataManager
+        tower_data = self.data_manager.get_all_tower_data()
         for tower_key, data in tower_data.items():
-            tower_class = self.tower_class_map.get(tower_key) # Get class from map
-            if not tower_class:
-                print(f"Warning: No class found for tower key '{tower_key}' in tower_class_map.")
-                continue
-
             button = Button(button_y,
-                            tower_key, # Pass tower_key instead of class to Button
-                            data.get("icon", "default_icon.png"), # Get icon path from data
-                            data.get("name", "Unknown Tower"), # Get name from data
-                            data.get("cost", 9999), # Get cost from data
-                            data.get("fallback_color", "GREY") # Pass fallback color name
+                            tower_key,
+                            data.get("icon", "default_icon.png"),
+                            data.get("name", "Unknown Tower"),
+                            data.get("cost", 9999),
+                            data.get("fallback_color", "GREY"),
+                            asset_manager # Pass asset_manager to Button
                            )
             self.buttons.append(button)
             button_y += button.height + Button.PADDING
@@ -100,6 +111,16 @@ class UIPanel:
         # Set initial selection (key)
         if self.buttons:
              self.selected_tower_key = self.buttons[0].tower_key # Store key
+
+    def _load_scaled_icon(self, icon_path, size):
+        """Loads and scales an icon using the AssetManager."""
+        image, _ = self.asset_manager.load_image(icon_path)
+        if image:
+            try:
+                return pygame.transform.smoothscale(image.copy(), size)
+            except ValueError as e:
+                print(f"UI Panel Error scaling icon {icon_path}: {e}")
+        return None
 
     def handle_click(self, pos):
         # Check if click is within the panel area
@@ -119,12 +140,66 @@ class UIPanel:
         """Returns the string key of the selected tower type."""
         return self.selected_tower_key
 
-    def draw(self, surface):
-        # Draw panel background (optional, could just rely on buttons)
+    def draw(self, surface, health, money, wave_num, is_wave_active):
+        # Draw Tower Selection Panel Background (Optional)
         # pygame.draw.rect(surface, config.UI_BG_COLOR, self.rect)
 
-        # Draw buttons
+        # Draw Tower Buttons
         for button in self.buttons:
-            # Check selection based on key
             is_selected = (self.selected_tower_key == button.tower_key)
-            button.draw(surface, self.font, selected=is_selected) 
+            # Pass the general UI font (self.font) to buttons
+            button.draw(surface, self.font, selected=is_selected)
+
+        # Draw Status Bar
+        self._draw_status_bar(surface, health, money, wave_num)
+
+        # Draw Wave Prompt
+        if not is_wave_active and health > 0:
+            self._draw_wave_prompt(surface)
+
+    def _draw_status_bar(self, surface, health, money, wave):
+        """Draws the top status bar with icons and text."""
+        bar_height = 40
+        # Draw only over the game area, not the selection panel
+        bar_rect = pygame.Rect(0, 0, config.GAME_AREA_WIDTH, bar_height)
+        pygame.draw.rect(surface, config.STATUS_BAR_BG_COLOR, bar_rect)
+
+        padding = 10
+        icon_text_padding = 5
+        current_x = padding
+
+        # Health
+        if self.heart_icon:
+            surface.blit(self.heart_icon, (current_x, (bar_height - self.heart_icon.get_height()) // 2))
+            current_x += self.heart_icon.get_width() + icon_text_padding
+        health_text = self.status_font.render(f"{health}", True, config.WHITE)
+        health_rect = health_text.get_rect(midleft=(current_x, bar_height // 2))
+        surface.blit(health_text, health_rect)
+        current_x += health_rect.width + padding * 2
+
+        # Money
+        if self.coin_icon:
+            surface.blit(self.coin_icon, (current_x, (bar_height - self.coin_icon.get_height()) // 2))
+            current_x += self.coin_icon.get_width() + icon_text_padding
+        money_text = self.status_font.render(f"{money}", True, config.WHITE)
+        money_rect = money_text.get_rect(midleft=(current_x, bar_height // 2))
+        surface.blit(money_text, money_rect)
+        current_x += money_rect.width + padding * 2
+
+        # Wave
+        wave_text = self.status_font.render(f"Wave: {wave}", True, config.WHITE)
+        wave_rect = wave_text.get_rect(midright=(config.GAME_AREA_WIDTH - padding, bar_height // 2))
+        surface.blit(wave_text, wave_rect)
+
+    def _draw_wave_prompt(self, surface):
+        """Draws the prompt to start the next wave."""
+        prompt_y = config.SCREEN_HEIGHT - 30
+        prompt_text = self.prompt_font.render("Next Wave (SPACE)", True, config.WHITE)
+        prompt_rect = prompt_text.get_rect(center=(config.GAME_AREA_WIDTH // 2, prompt_y))
+
+        if self.next_wave_icon:
+            icon_rect = self.next_wave_icon.get_rect(midright=(prompt_rect.left - 5, prompt_y))
+            surface.blit(self.next_wave_icon, icon_rect)
+            surface.blit(prompt_text, prompt_rect)
+        else:
+            surface.blit(prompt_text, prompt_rect) 

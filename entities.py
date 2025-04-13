@@ -3,8 +3,8 @@ import config
 import math
 import os
 import game_data_manager
-import sound_manager
 from modifiers import Modifier, SlowModifier # Import modifiers
+from game_data_manager import DataManager
 
 def load_image(filename, colorkey=None):
     """Loads an image, prepares it for play.
@@ -30,8 +30,10 @@ def load_image(filename, colorkey=None):
 # --- Base Classes ---
 class BaseTower(pygame.sprite.Sprite):
     # Common attributes/methods for all towers
-    def __init__(self, grid_x, grid_y, type_key):
+    def __init__(self, grid_x, grid_y, type_key, asset_manager, data_manager):
         super().__init__()
+        self.asset_manager = asset_manager
+        self.data_manager = data_manager # Store data manager
         self.grid_x = grid_x
         self.grid_y = grid_y
         self.x = grid_x * config.TILE_SIZE + config.TILE_SIZE // 2
@@ -40,8 +42,8 @@ class BaseTower(pygame.sprite.Sprite):
         self.target = None
         self.type_key = type_key # Store the type key (e.g., "Basic", "Cannon")
 
-        # Load data for this specific tower type
-        data = game_data_manager.get_tower_data(type_key)
+        # Load data for this specific tower type using passed data_manager
+        data = self.data_manager.get_tower_data(type_key)
         if not data:
             print(f"Error: No data found for tower type '{type_key}'")
             # Handle error appropriately - maybe default values or raise exception
@@ -61,7 +63,7 @@ class BaseTower(pygame.sprite.Sprite):
         fallback_color_name = data.get("fallback_color", "GREY")
         fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
         fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
-        self.load_and_position_image(image_path, fallback_size, fallback_color)
+        self.load_and_position_image(asset_manager, image_path, fallback_size, fallback_color)
 
     def find_target(self, enemies):
         self.target = None
@@ -87,8 +89,8 @@ class BaseTower(pygame.sprite.Sprite):
     # Abstract method - subclasses must implement
     def shoot(self, projectiles):
         if self.target:
-            # Use the projectile type key stored in the tower
-            projectile_data = game_data_manager.get_projectile_data(self.projectile_type)
+            # Use self.data_manager
+            projectile_data = self.data_manager.get_projectile_data(self.projectile_type)
             if projectile_data:
                 # Need a way to map projectile_type key to Projectile class
                 # We'll handle instantiation in specific Tower classes for now
@@ -98,12 +100,10 @@ class BaseTower(pygame.sprite.Sprite):
             else:
                 print(f"Error: No projectile data found for type '{self.projectile_type}'")
 
-    def load_and_position_image(self, image_path, fallback_size, fallback_color):
-        self.image, self.rect = load_image(image_path)
-
-        # Get scale ratio from the instance's data (requires data to be accessible)
-        # Fetch data again here or pass scale_ratio down
-        data = game_data_manager.get_tower_data(self.type_key)
+    def load_and_position_image(self, asset_manager, image_path, fallback_size, fallback_color):
+        self.image, self.rect = asset_manager.load_image(image_path)
+        # Use self.data_manager
+        data = self.data_manager.get_tower_data(self.type_key)
         scale_ratio = data.get("scale_ratio", 0.9) if data else 0.9
         target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
 
@@ -124,14 +124,16 @@ class BaseTower(pygame.sprite.Sprite):
 
 class BaseProjectile(pygame.sprite.Sprite):
     # Common attributes/methods for all projectiles
-    def __init__(self, start_pos, target_enemy, type_key):
+    def __init__(self, start_pos, target_enemy, type_key, asset_manager, data_manager):
         super().__init__()
+        self.asset_manager = asset_manager
+        self.data_manager = data_manager # Store data manager
         self.x, self.y = start_pos
         self.target = target_enemy
         self.type_key = type_key
 
-        # Load data
-        data = game_data_manager.get_projectile_data(type_key)
+        # Load data using passed data_manager
+        data = self.data_manager.get_projectile_data(type_key)
         if not data:
             print(f"Error: No data found for projectile type '{type_key}'")
             return
@@ -149,7 +151,7 @@ class BaseProjectile(pygame.sprite.Sprite):
         fallback_color_name = data.get("fallback_color", "YELLOW")
         fallback_size = int(config.TILE_SIZE * fallback_size_ratio)
         fallback_color = config.COLOR_MAP.get(fallback_color_name, config.GREY)
-        self.load_and_position_image(image_path, fallback_size, fallback_color)
+        self.load_and_position_image(asset_manager, image_path, fallback_size, fallback_color)
 
     def move(self, dt):
         if not self.target or not self.target.alive():
@@ -173,11 +175,10 @@ class BaseProjectile(pygame.sprite.Sprite):
     def update(self, dt, enemies):
         self.move(dt)
 
-    def load_and_position_image(self, image_path, fallback_size, fallback_color):
-        self.image, self.rect = load_image(image_path)
-
-        # Fetch scale ratio from data
-        data = game_data_manager.get_projectile_data(self.type_key)
+    def load_and_position_image(self, asset_manager, image_path, fallback_size, fallback_color):
+        self.image, self.rect = asset_manager.load_image(image_path)
+        # Use self.data_manager
+        data = self.data_manager.get_projectile_data(self.type_key)
         scale_ratio = data.get("scale_ratio", 0.3) if data else 0.3
         target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
 
@@ -195,61 +196,78 @@ class BaseProjectile(pygame.sprite.Sprite):
 
         self.rect.center = (self.x, self.y)
 
+    def on_hit(self, target_enemy, enemies_group, effects_group):
+        """Handles the projectile hitting a target. Subclasses must implement.
+
+        Args:
+            target_enemy: The primary enemy hit by the projectile.
+            enemies_group: The sprite group containing all active enemies.
+            effects_group: The sprite group for visual effects.
+
+        Returns:
+            bool: True if the projectile should be destroyed after the hit, False otherwise.
+        """
+        raise NotImplementedError("Projectile subclasses must implement on_hit")
+
 
 # --- Tower Class (now inherits from BaseTower) ---
 class Tower(BaseTower):
-    # Remove hardcoded stats and fallbacks
-    # FALLBACK_SIZE = int(config.TILE_SIZE * 0.8)
-    # FALLBACK_COLOR = config.BLUE
-    # COST = 50
-    # RANGE = 150
-    # FIRE_RATE = 1.0
 
-    def __init__(self, grid_x, grid_y):
+    def __init__(self, grid_x, grid_y, asset_manager, data_manager):
         # Pass the type key for this tower
-        super().__init__(grid_x, grid_y, type_key="Basic")
+        super().__init__(grid_x, grid_y, type_key="Basic", asset_manager=asset_manager, data_manager=data_manager)
         # Base __init__ now handles loading data and setting attributes
 
     # Implement the specific shooting action
     def shoot(self, projectiles):
         if self.target:
-            # Instantiate the correct projectile type based on self.projectile_type
-            # (which was set from data in base __init__)
-            # We know "Basic" tower uses "Basic" projectile
-            projectile = Projectile(self.rect.center, self.target, type_key="Basic")
+            # Pass data_manager when creating projectile
+            projectile = Projectile(self.rect.center, self.target, type_key="Basic", asset_manager=self.asset_manager, data_manager=self.data_manager)
             projectiles.add(projectile)
-            # Get sound filename from data
-            tower_data = game_data_manager.get_tower_data(self.type_key)
+            # Use self.data_manager
+            tower_data = self.data_manager.get_tower_data(self.type_key)
             if tower_data and tower_data.get("shoot_sound"):
                  shoot_sound_file = tower_data["shoot_sound"]
-                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
+                 sound = self.asset_manager.load_sound(shoot_sound_file)
+                 self.asset_manager.play_sound(sound)
 
 
 # --- Projectile Class (now inherits from BaseProjectile) ---
 class Projectile(BaseProjectile):
-    # Remove hardcoded stats and fallbacks
-    # FALLBACK_SIZE = int(config.TILE_SIZE * 0.2)
-    # FALLBACK_COLOR = config.YELLOW
-    # SPEED = 300
-    # DAMAGE = 25
 
-    def __init__(self, start_pos, target_enemy, type_key="Basic"):
-        super().__init__(start_pos, target_enemy, type_key)
+    def __init__(self, start_pos, target_enemy, type_key="Basic", asset_manager=None, data_manager=None):
+        super().__init__(start_pos, target_enemy, type_key, asset_manager, data_manager)
         # Base __init__ handles loading data
+
+    def on_hit(self, target_enemy, enemies_group, effects_group):
+        # Play hit sound
+        proj_data = self.data_manager.get_projectile_data(self.type_key)
+        if proj_data and proj_data.get("hit_sound"):
+             hit_sound = self.asset_manager.load_sound(proj_data["hit_sound"])
+             self.asset_manager.play_sound(hit_sound)
+
+        # Apply direct damage
+        if target_enemy.alive(): # Check if target still alive before damaging
+            target_enemy.take_damage(self.damage)
+
+        # Basic projectile is always destroyed on hit
+        return True
 
 
 # --- Enemy Class ---
 class Enemy(pygame.sprite.Sprite):
 
-    def __init__(self, path, type_key="Goblin"): # Default to Goblin now
+    def __init__(self, path, type_key="Goblin", asset_manager=None, data_manager=None): # Default to Goblin now
         super().__init__()
+        self.asset_manager = asset_manager
+        self.data_manager = data_manager # Store data manager
         self.path = path
         self.path_index = 0
         self.x, self.y = self.path[0]
         self.type_key = type_key
 
-        # Load data for this enemy type
-        data = game_data_manager.get_enemy_data(type_key)
+        # Load data for this enemy type using passed data_manager
+        data = self.data_manager.get_enemy_data(type_key) if self.data_manager else None
         if not data:
             print(f"Error: No data found for enemy type '{type_key}'")
             # Set defaults or raise error
@@ -283,19 +301,17 @@ class Enemy(pygame.sprite.Sprite):
         self.animation_speed = 150 # Default, will be overridden by data
 
         if animation_data and isinstance(animation_data.get("frames"), list):
-            # Load animation frames
             self.animation_speed = animation_data.get("speed", 150)
-            # Use scale_ratio from data for target size
             target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
             for frame_filename in animation_data["frames"]:
-                frame_image, _ = load_image(frame_filename)
-                if frame_image:
-                    # Scale each frame
-                    scaled_frame = pygame.transform.smoothscale(frame_image, target_size)
+                # Unpack the tuple here
+                image_surface, _ = self.asset_manager.load_image(frame_filename)
+                if image_surface: # Check the surface, not the tuple
+                    # Scale the actual image surface
+                    scaled_frame = pygame.transform.smoothscale(image_surface, target_size)
                     self.animation_frames.append(scaled_frame)
             if not self.animation_frames:
-                 # Need to pass fallback_size_ratio as well
-                 self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
+                 self._create_fallback_image(self.asset_manager, fallback_color_name, fallback_size_ratio, scale_ratio)
             else:
                  self.image = self.animation_frames[0]
                  self.rect = self.image.get_rect()
@@ -304,10 +320,10 @@ class Enemy(pygame.sprite.Sprite):
             # Load static image
             # Use scale_ratio from data for target size
             target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
-            self.image, self.rect = load_image(image_path)
+            self.image = self.asset_manager.load_image(image_path)
             if self.image is None:
                  # Need to pass fallback_size_ratio as well
-                 self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
+                 self._create_fallback_image(self.asset_manager, fallback_color_name, fallback_size_ratio, scale_ratio)
             else:
                  # Scale static image
                  self.image = pygame.transform.smoothscale(self.image, target_size)
@@ -317,7 +333,7 @@ class Enemy(pygame.sprite.Sprite):
              # No animation and no static image -> Use fallback
              print(f"Warning: No image or animation defined for {type_key}. Using fallback.")
              # Need to pass fallback_size_ratio as well
-             self._create_fallback_image(fallback_color_name, fallback_size_ratio, scale_ratio)
+             self._create_fallback_image(self.asset_manager, fallback_color_name, fallback_size_ratio, scale_ratio)
 
         self.rect.center = (self.x, self.y)
 
@@ -328,7 +344,7 @@ class Enemy(pygame.sprite.Sprite):
              print(f"Warning: Enemy path for {self.type_key} too short.")
              self.target_x, self.target_y = self.x, self.y
 
-    def _create_fallback_image(self, fallback_color_name, fallback_size_ratio, scale_ratio):
+    def _create_fallback_image(self, asset_manager, fallback_color_name, fallback_size_ratio, scale_ratio):
         """Helper to create and scale the fallback colored square."""
         # Calculate target size using the scale_ratio intended for the final image
         target_size = (int(config.TILE_SIZE * scale_ratio), int(config.TILE_SIZE * scale_ratio))
@@ -413,10 +429,6 @@ class Enemy(pygame.sprite.Sprite):
         self.health -= amount
         if self.health <= 0:
             self.kill()
-            # Play death sound from enemy data
-            enemy_data = game_data_manager.get_enemy_data(self.type_key)
-            if enemy_data and enemy_data.get("die_sound"):
-                sound_manager.play_sound(sound_manager.load_sound(enemy_data["die_sound"]))
 
     def draw_health_bar(self, surface):
          if self.health < self.max_health:
@@ -453,61 +465,124 @@ class Enemy(pygame.sprite.Sprite):
 # --- Cannon Tower Class ---
 class CannonTower(BaseTower):
 
-    def __init__(self, grid_x, grid_y):
+    def __init__(self, grid_x, grid_y, asset_manager, data_manager):
         # Pass the type key for this tower
-        super().__init__(grid_x, grid_y, type_key="Cannon")
+        super().__init__(grid_x, grid_y, type_key="Cannon", asset_manager=asset_manager, data_manager=data_manager)
 
     # Implement the specific shooting action
     def shoot(self, projectiles):
         if self.target:
             # "Cannon" tower uses "Cannon" projectile
-            projectile = CannonProjectile(self.rect.center, self.target, type_key="Cannon")
+            projectile = CannonProjectile(self.rect.center, self.target, type_key="Cannon", asset_manager=self.asset_manager, data_manager=self.data_manager)
             projectiles.add(projectile)
             # Get sound filename from data
-            tower_data = game_data_manager.get_tower_data(self.type_key)
+            tower_data = self.data_manager.get_tower_data(self.type_key)
             if tower_data and tower_data.get("shoot_sound"):
                  shoot_sound_file = tower_data["shoot_sound"]
-                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
+                 sound = self.asset_manager.load_sound(shoot_sound_file)
+                 self.asset_manager.play_sound(sound)
 
 
 # --- Cannon Projectile Class ---
 class CannonProjectile(BaseProjectile):
 
-    def __init__(self, start_pos, target_enemy, type_key="Cannon"):
-        super().__init__(start_pos, target_enemy, type_key)
-        # Base __init__ handles loading data (including splash_radius) 
+    def __init__(self, start_pos, target_enemy, type_key="Cannon", asset_manager=None, data_manager=None):
+        super().__init__(start_pos, target_enemy, type_key, asset_manager, data_manager)
+
+    def on_hit(self, target_enemy, enemies_group, effects_group):
+        impact_pos = self.rect.center
+        proj_data = self.data_manager.get_projectile_data(self.type_key)
+
+        # Play hit sound
+        if proj_data and proj_data.get("hit_sound"):
+             hit_sound = self.asset_manager.load_sound(proj_data["hit_sound"])
+             self.asset_manager.play_sound(hit_sound)
+
+        # Apply direct damage
+        if target_enemy.alive():
+            target_enemy.take_damage(self.damage)
+
+        # Apply splash damage
+        if self.splash_radius > 0:
+            for enemy in enemies_group.sprites():
+                # Check if alive AND not the primary target (to avoid double damage from splash)
+                if enemy.alive() and enemy is not target_enemy:
+                    dist = math.hypot(impact_pos[0] - enemy.rect.centerx, impact_pos[1] - enemy.rect.centery)
+                    if dist <= self.splash_radius:
+                        enemy.take_damage(self.damage) # Apply splash damage
+
+        # Create visual splash effect
+        if proj_data and proj_data.get("splash_image"):
+            splash_image_path = proj_data["splash_image"]
+            target_diameter = int(self.splash_radius * 2)
+            effect_size = (target_diameter, target_diameter)
+            effect = Effect(impact_pos, splash_image_path, 200, self.asset_manager, self.data_manager, target_size=effect_size)
+            effects_group.add(effect)
+
+        # Cannon projectile is always destroyed on hit
+        return True
+
 
 # --- Ice Tower Class ---
 class IceTower(BaseTower):
-    def __init__(self, grid_x, grid_y):
-        super().__init__(grid_x, grid_y, type_key="Ice")
+    def __init__(self, grid_x, grid_y, asset_manager, data_manager):
+        super().__init__(grid_x, grid_y, type_key="Ice", asset_manager=asset_manager, data_manager=data_manager)
 
     def shoot(self, projectiles):
         if self.target:
-            projectile = IceProjectile(self.rect.center, self.target, type_key="Ice")
+            projectile = IceProjectile(self.rect.center, self.target, type_key="Ice", asset_manager=self.asset_manager, data_manager=self.data_manager)
             projectiles.add(projectile)
             # Play sound (fetched from data in base class or specific sound here)
-            tower_data = game_data_manager.get_tower_data(self.type_key)
+            tower_data = self.data_manager.get_tower_data(self.type_key)
             if tower_data and tower_data.get("shoot_sound"):
                  shoot_sound_file = tower_data["shoot_sound"]
-                 sound_manager.play_sound(sound_manager.load_sound(shoot_sound_file))
+                 sound = self.asset_manager.load_sound(shoot_sound_file)
+                 self.asset_manager.play_sound(sound)
 
 
 # --- Ice Projectile Class ---
 class IceProjectile(BaseProjectile):
-    def __init__(self, start_pos, target_enemy, type_key="Ice"):
-        super().__init__(start_pos, target_enemy, type_key)
-        data = game_data_manager.get_projectile_data(type_key)
+    def __init__(self, start_pos, target_enemy, type_key="Ice", asset_manager=None, data_manager=None):
+        super().__init__(start_pos, target_enemy, type_key, asset_manager, data_manager)
+        data = self.data_manager.get_projectile_data(type_key)
         self.slow_factor = data.get("slow_factor", 1.0)
         self.slow_duration = data.get("slow_duration", 0)
         # BaseProjectile loads splash_radius, accessible as self.splash_radius
 
+    def on_hit(self, target_enemy, enemies_group, effects_group):
+        impact_pos = self.rect.center
+        proj_data = self.data_manager.get_projectile_data(self.type_key)
+
+        # Play hit sound
+        if proj_data and proj_data.get("hit_sound"):
+             hit_sound = self.asset_manager.load_sound(proj_data["hit_sound"])
+             self.asset_manager.play_sound(hit_sound)
+
+        # Apply direct damage
+        if target_enemy.alive():
+            target_enemy.take_damage(self.damage)
+
+        # Apply splash slow effect
+        if self.splash_radius > 0:
+            for enemy in enemies_group.sprites():
+                if enemy.alive(): # Slow applies even to primary target again
+                    dist = math.hypot(impact_pos[0] - enemy.rect.centerx, impact_pos[1] - enemy.rect.centery)
+                    if dist <= self.splash_radius:
+                        slow_mod = SlowModifier(self.slow_factor, self.slow_duration)
+                        enemy.add_modifier(slow_mod)
+
+        # Ice projectile is always destroyed on hit
+        return True
+
+
 # --- Visual Effect Class ---
 class Effect(pygame.sprite.Sprite):
     """A sprite for temporary visual effects like explosions."""
-    def __init__(self, pos, image_path, duration_ms, target_size=None):
+    def __init__(self, pos, image_path, duration_ms, asset_manager, data_manager, target_size=None):
         super().__init__()
-        self.image, self.rect = load_image(image_path)
+        self.asset_manager = asset_manager
+        self.data_manager = data_manager # Store it
+        self.image = asset_manager.load_image(image_path)
         if not self.image:
             print(f"Warning: Failed to load effect image {image_path}. Effect won't display.")
             self.kill()
