@@ -1,0 +1,116 @@
+{
+    "Goblin": {
+        "name": "Goblin",
+        "animation": {
+            "frames": [
+                "enemies/goblin_frame_1.png",
+                "enemies/goblin_frame_2.png",
+                "enemies/goblin_frame_3.png"
+            ],
+            "speed": 150
+        },
+        "speed": 60,
+        "health": 90,
+        "reward": 8,
+        "scale_ratio": 1.2,
+        "fallback_size_ratio": 0.6,
+        "fallback_color": "GREEN",
+        "die_sound": "goblin_die.mp3",
+        "reach_end_sound": "goblin_reach_end.wav"
+    },
+    "Ogre": {
+        "name": "Ogre",
+        "animation": {
+            "frames": [
+                "enemies/ogre_frame_1.png",
+                "enemies/ogre_frame_2.png",
+                "enemies/ogre_frame_3.png"
+            ],
+            "speed": 120
+        },
+        "speed": 40,
+        "health": 300,
+        "reward": 20,
+        "scale_ratio": 1.6,
+        "fallback_size_ratio": 0.8,
+        "fallback_color": "BROWN",
+        "die_sound": "ogre_die.mp3",
+        "reach_end_sound": "ogre_reach_end.wav"
+    },
+    "Dragon": {
+        "name": "Dragon",
+        "animation": {
+            "frames": [
+                "enemies/dragon_fly_1.png",
+                "enemies/dragon_fly_2.png",
+                "enemies/dragon_fly_3.png",
+                "enemies/dragon_fly_4.png"
+            ],
+            "speed": 100 
+        },
+        "speed": 55, 
+        "health": 500,
+        "reward": 50,
+        "is_flying": true,
+        "scale_ratio": 1.7, 
+        "fallback_size_ratio": 1.0,
+        "fallback_color": "DARK_RED",
+        "die_sound": "dragon_die.wav", 
+        "reach_end_sound": "dragon_reach_end.wav"
+    },
+    "Runner": {
+        "name": "Runner",
+        "animation": {
+            "frames": [
+                "enemies/runner_1.png",
+                "enemies/runner_2.png"
+            ],
+            "speed": 120
+        },
+        "speed": 120,
+        "health": 50,
+        "reward": 3,
+        "scale_ratio": 1.0,
+        "fallback_size_ratio": 0.6,
+        "fallback_color": "YELLOW",
+        "die_sound": "runner_die.wav",
+        "reach_end_sound": "runner_reach_end.wav"
+    },
+    "Brute": {
+        "name": "Brute",
+        "animation": {
+            "frames": [
+                "enemies/brute_1.png",
+                "enemies/brute_2.png"
+            ],
+            "speed": 35
+        },
+        "speed": 35,
+        "health": 450,
+        "reward": 30,
+        "scale_ratio": 1.0,
+        "fallback_size_ratio": 0.9,
+        "fallback_color": "GREY",
+        "die_sound": "brute_die.wav",
+        "reach_end_sound": "brute_reach_end.wav"
+    },
+    "Digger": {
+        "name": "Digger",
+        "animation": {
+            "frames": [
+                "enemies/digger_1.png",
+                "enemies/digger_2.png"
+            ],
+            "speed": 200
+        },
+        "speed": 50,
+        "health": 120,
+        "reward": 15,
+        "can_dig": true,
+        "scale_ratio": 0.8,
+        "fallback_size_ratio": 0.7,
+        "fallback_color": "BROWN",
+        "die_sound": "digger_die.wav",
+        "reach_end_sound": "digger_reach_end.wav"
+    }
+} 
