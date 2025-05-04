@@ -2,13 +2,6 @@
 
 A little tower defense game I made for an evenings amusement :)
 
-## Setup
-
-```bash
-pip install -r requirements.txt
-python main.py
-```
-
 ## Gameplay
 
 *   **Dynamic Path:** Enemies follow a randomly generated path that changes *every wave*!
